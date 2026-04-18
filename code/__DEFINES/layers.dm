@@ -11,12 +11,16 @@
 
 //#define AREA_LAYER 1
 
+#define DISPLACEMENT_PLATE_RENDER_LAYER 10
+#define DISPLACEMENT_PLATE_RENDER_TARGET "*DISPLACEMENT_PLATE_RENDER_TARGET"
+
 #define UNDER_TURF_LAYER 1.99
 
 #define TURF_LAYER 2
 
 #define ABOVE_TURF_LAYER 2.01
 #define WALL_LAYER 2.02
+#define ABOVE_WALL_LAYER 2.03
 
 #define LATTICE_LAYER 2.15
 
@@ -53,6 +57,8 @@
 /// conveyor belt
 #define CONVEYOR_LAYER 2.56
 
+#define RESIN_UNDER_STRUCTURE_LAYER 2.59
+
 #define RESIN_STRUCTURE_LAYER 2.6
 
 #define LADDER_LAYER 2.7
@@ -83,10 +89,15 @@
 
 #define ABOVE_SPECIAL_RESIN_STRUCTURE_LAYER 3.01
 
+/// A layer above objects (like structures) but below items
+#define BETWEEN_OBJECT_ITEM_LAYER 3.01
+
+/// The layer on which items lay
+#define ITEM_LAYER 3.02
 /// for items that should be at the top of the pile of items
-#define UPPER_ITEM_LAYER 3.01
+#define UPPER_ITEM_LAYER 3.03
 /// just above all items
-#define ABOVE_OBJ_LAYER 3.02
+#define ABOVE_OBJ_LAYER 3.04
 
 #define BUSH_LAYER 3.05
 
@@ -122,6 +133,8 @@
 #define ABOVE_XENO_LAYER 4.12
 /// For facehuggers
 #define FACEHUGGER_LAYER 4.13
+/// For Signs above everything but below weather
+#define BILLBOARD_LAYER 4.13
 /// For WEATHER
 #define WEATHER_LAYER 4.14
 
@@ -135,8 +148,6 @@
 #define INTERIOR_ROOF_LAYER 5.5
 
 #define ABOVE_FLY_LAYER 6
-
-#define ABOVE_LIGHTING_PLANE 16
 
 /// blip from motion detector
 #define BELOW_FULLSCREEN_LAYER 16.9
@@ -155,18 +166,61 @@
 #define FULLSCREEN_BLIND_LAYER 17.15
 /// pain flashes
 #define FULLSCREEN_PAIN_LAYER 17.2
+/// Vulture sniper/spotter scope
+#define FULLSCREEN_VULTURE_SCOPE_LAYER 17.21
 /// in critical
 #define FULLSCREEN_CRIT_LAYER 17.25
 
 #define HUD_LAYER 19
 #define ABOVE_HUD_LAYER 20
-
 #define CINEMATIC_LAYER 21
-
-#define TYPING_LAYER 500
+#define TACMAP_LAYER 22
+#define INTRO_LAYER 23
 
 /// for areas, so they appear above everything else on map file.
 #define AREAS_LAYER 999
+
+//Float layers. These layer over normal layers, but a high float layer will layer over a lower float layer (i.e. -1 over -2)
+#define BELOW_FLOAT_LAYER -2
+#define STANDARD_FLOAT_LAYER -1
+#define ABOVE_FLOAT_LAYER -0.9
+#define HIGH_FLOAT_LAYER -0.8
+#define VERY_HIGH_FLOAT_LAYER -0.7
+
+//---------- EMISSIVES -------------
+//Layering order of these is not particularly meaningful.
+//Important part is the seperation of the planes for control via plane_master
+
+/// This plane masks out lighting to create an "emissive" effect, ie for glowing lights in otherwise dark areas.
+#define EMISSIVE_PLANE 90
+/// The render target used by the emissive layer.
+#define EMISSIVE_RENDER_TARGET "*EMISSIVE_PLANE"
+/// The layer you should use if you _really_ don't want an emissive overlay to be blocked.
+#define EMISSIVE_LAYER_UNBLOCKABLE 9999
+
+#define LIGHTING_BACKPLANE_LAYER 14.5
+
+#define LIGHTING_RENDER_TARGET "LIGHT_PLANE"
+
+#define SHADOW_RENDER_TARGET "SHADOW_RENDER_TARGET"
+
+/// Plane for balloon text (text that fades up)
+#define BALLOON_CHAT_PLANE 110
+/// Bubble for typing indicators
+#define TYPING_LAYER 500
+
+#define O_LIGHTING_VISUAL_PLANE 120
+#define O_LIGHTING_VISUAL_LAYER 16
+#define O_LIGHTING_VISUAL_RENDER_TARGET "O_LIGHT_VISUAL_PLANE"
+
+#define LIGHTING_PRIMARY_LAYER 15	//The layer for the main lights of the station
+#define LIGHTING_PRIMARY_DIMMER_LAYER 15.1	//The layer that dims the main lights of the station
+#define LIGHTING_SECONDARY_LAYER 16	//The colourful, usually small lights that go on top
+
+#define LIGHTING_SHADOW_LAYER 17	//Where the shadows happen
+
+#define ABOVE_LIGHTING_PLANE 150
+#define ABOVE_LIGHTING_LAYER 18
 
 /*=============================*\
 | |
@@ -177,20 +231,44 @@
 /// NEVER HAVE ANYTHING BELOW THIS PLANE ADJUST IF YOU NEED MORE SPACE
 #define LOWEST_EVER_PLANE -200
 
+#define OPEN_SPACE_PLANE_END -20
+
+// Do no put anything between these two, adjust more z level support as needed
+#define OPEN_SPACE_PLANE_START -9
+
+#define OPENSPACE_BACKDROP_PLANE -8
+
 /// Floor plane, self explanatory. Used for Ambient Occlusion filter
 #define FLOOR_PLANE -7
-/// Game Plane, where most of the game objects reside
-#define GAME_PLANE -6
-/// Roof plane, disappearing when entering buildings
-#define ROOF_PLANE -4
+
+#define TURF_PLANE -6
 
 /// To keep from conflicts with SEE_BLACKNESS internals
 #define BLACKNESS_PLANE 0
 
+
+/// Game Plane, where most of the game objects reside
+#define GAME_PLANE 1
+
+/// Above Game Plane. For things which are above game objects, but below screen effects.
+#define ABOVE_GAME_PLANE 2
+
+///Slightly above the game plane but does not catch mouse clicks. Useful for certain visuals that should be clicked through, like seethrough trees
+#define SEETHROUGH_PLANE 3
+
+/// Roof plane, disappearing when entering buildings
+#define ROOF_PLANE 4
+
+/// For turfs and things we want to appear *over* blackness
+#define ABOVE_BLACKNESS_PLANE 5
+#define ABOVE_BLACKNESS_BACKDROP_PLANE 6
+
 #define GHOST_PLANE 80
 
+///--------------- FULLSCREEN RUNECHAT BUBBLES ------------
 #define LIGHTING_PLANE 100
 #define EXTERIOR_LIGHTING_PLANE 101
+#define NVG_PLANE 110
 
 ///Popup Chat Messages
 #define RUNECHAT_PLANE 501
@@ -198,7 +276,6 @@
 #define RENDER_PLANE_GAME 990
 #define RENDER_PLANE_NON_GAME 995
 
-#define ESCAPE_MENU_PLANE 997
 
 #define RENDER_PLANE_MASTER 999
 
@@ -208,9 +285,10 @@
 /// HUD layer defines
 #define HUD_PLANE 1000
 #define ABOVE_HUD_PLANE 1100
-
+#define TACMAP_PLANE 1149
+#define ABOVE_TACMAP_PLANE 1150
 #define CINEMATIC_PLANE 1200
-
+#define ESCAPE_MENU_PLANE 1300
 
 /// Plane master controller keys
 #define PLANE_MASTERS_GAME "plane_masters_game"

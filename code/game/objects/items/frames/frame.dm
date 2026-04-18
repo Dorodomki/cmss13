@@ -8,8 +8,8 @@
 
 /obj/item/frame/apc
 	name = "\improper APC frame"
-	desc = "Used for repairing or building APCs"
-	icon = 'icons/obj/structures/machinery/apc_repair.dmi'
+	desc = "Used for repairing or building APCs."
+	icon = 'icons/obj/structures/machinery/apc.dmi'
 	icon_state = "apc_frame"
 	flags_atom = FPRINT|CONDUCT
 
@@ -23,7 +23,7 @@
 	if (get_dist(on_wall,usr)>1)
 		return
 	var/ndir = get_dir(usr,on_wall)
-	if (!(ndir in cardinal))
+	if (!(ndir in GLOB.cardinals))
 		return
 	var/turf/loc = get_turf(usr)
 	var/area/A = get_area(loc)
@@ -39,7 +39,7 @@
 	if (A.always_unpowered)
 		to_chat(usr, SPAN_WARNING("This area is unsuitable for an APC."))
 		return
-	for(var/obj/structure/machinery/power/terminal/T in loc)
+	for(var/obj/structure/terminal/T in loc)
 		if (T.master)
 			to_chat(usr, SPAN_WARNING("There is another network terminal here."))
 			return

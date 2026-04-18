@@ -26,7 +26,7 @@
 #define AMMO_IGNORE_RESIST (1<<10)
 #define AMMO_BALLISTIC (1<<11)
 #define AMMO_IGNORE_COVER (1<<12)
-//                              (1<<13) unused, previously was AMMO_SCANS_NEARBY
+#define AMMO_ANTIVEHICLE (1<<13)
 #define AMMO_STOPPED_BY_COVER (1<<14)
 #define AMMO_SPECIAL_EMBED (1<<15)
 /// If the projectile hits a dense turf it'll do on_hit_turf on the turf just in front of the turf instead of on the turf itself
@@ -41,7 +41,10 @@
 #define AMMO_MP (1<<21)
 /// Handles sentry flamers glob
 #define AMMO_FLAME (1<<22)
+// If the projectile hits a dense turf it'll do on_hit_turf on the turf just in front of the turf instead of on the turf itself (This one does not work on mobs)
+#define AMMO_STRIKES_SURFACE_ONLY	(1<<23)
 // NOTE: Don't add flags past 1<<23, it'll break things due to BYOND limitations. You can usually use a Component instead.
+
 
 /// Projectile is shrpanel which allow it to skip some collisions
 #define PROJECTILE_SHRAPNEL  (1<<0)
@@ -54,30 +57,25 @@
 #define GUN_TRIGGER_SAFETY (1<<1)
 #define GUN_UNUSUAL_DESIGN (1<<2)
 #define GUN_SILENCED (1<<3)
-#define GUN_AUTOMATIC (1<<4)
+#define GUN_CANT_EXECUTE (1<<4)
 ///If checking for ammo with current.mag you have to check it against numerical values, as booleans will not trigger.
 #define GUN_INTERNAL_MAG (1<<5)
 #define GUN_AUTO_EJECTOR (1<<6)
 #define GUN_AMMO_COUNTER (1<<7)
-#define GUN_BURST_ON (1<<8)
-#define GUN_BURST_FIRING (1<<9)
-#define GUN_FLASHLIGHT_ON (1<<10)
-#define GUN_WY_RESTRICTED (1<<11)
-#define GUN_SPECIALIST (1<<12)
-#define GUN_WIELDED_FIRING_ONLY (1<<13)
-#define GUN_HAS_FULL_AUTO (1<<14)
-#define GUN_FULL_AUTO_ON (1<<15)
+#define GUN_BURST_FIRING (1<<8)
+#define GUN_FLASHLIGHT_ON (1<<9)
+#define GUN_WY_RESTRICTED (1<<10)
+#define GUN_SPECIALIST (1<<11)
+#define GUN_WIELDED_FIRING_ONLY (1<<12)
 /// removes unwielded accuracy and scatter penalties (not recoil)
-#define GUN_ONE_HAND_WIELDED (1<<16)
-#define GUN_ANTIQUE (1<<17)
+#define GUN_ONE_HAND_WIELDED (1<<13)
+#define GUN_ANTIQUE (1<<14)
 /// Whether the gun has been fired by its current user (reset upon `dropped()`)
-#define GUN_RECOIL_BUILDUP (1<<18)
-/// support weapon, bipod will grant IFF
-#define GUN_SUPPORT_PLATFORM (1<<19)
-#define GUN_BURST_ONLY (1<<20)
-#define GUN_FULL_AUTO_ONLY (1<<21)
+#define GUN_RECOIL_BUILDUP (1<<15)
+/// support weapon, bipod will grant autofire
+#define GUN_SUPPORT_PLATFORM (1<<16)
 /// No gun description, only base desc
-#define GUN_NO_DESCRIPTION (1<<22)
+#define GUN_NO_DESCRIPTION (1<<17)
 // NOTE: Don't add flags past 1<<23, it'll break things due to BYOND limitations. You can usually use a Component instead.
 
 #define USES_STREAKS (1<<0)
@@ -85,15 +83,19 @@
 #define MOVES_WHEN_LEVERING (1<<2)
 
 //Gun attachable related flags.
-#define ATTACH_REMOVABLE 1
-#define ATTACH_ACTIVATION 2
+#define ATTACH_REMOVABLE (1<<0)
+#define ATTACH_ACTIVATION (1<<1)
 /// for attachments that fire bullets
-#define ATTACH_PROJECTILE 4
-#define ATTACH_RELOADABLE 8
+#define ATTACH_PROJECTILE (1<<2)
+#define ATTACH_RELOADABLE (1<<3)
 /// is a weapon that fires stuff
-#define ATTACH_WEAPON 16
+#define ATTACH_WEAPON (1<<4)
+/// This attachment should override ignore if it is empty
+#define ATTACH_IGNORE_EMPTY (1<<5)
 /// This attachment should activate if you attack() with it attached.
-#define ATTACH_MELEE 32
+#define ATTACH_MELEE (1<<6)
+/// Override for attachies so you can fire them with a single hand . ONLY FOR PROJECTILES!!
+#define ATTACH_WIELD_OVERRIDE (1<<7)
 
 //Ammo magazine defines, for flags_magazine
 
@@ -103,12 +105,15 @@
 #define AMMUNITION_HANDFUL_BOX (1<<2)
 #define AMMUNITION_HIDE_AMMO (1<<3)
 #define AMMUNITION_CANNOT_REMOVE_BULLETS (1<<4)
+/// If this magazine can transfer to other magazines of the same type by slapping one with the other
+#define AMMUNITION_SLAP_TRANSFER (1<<5)
 //Slowdown from various armors.
 
 /// How much shoes slow you down by default. Negative values speed you up
 #define SHOES_SLOWDOWN -1
 
 #define SLOWDOWN_ARMOR_NONE 0
+#define SLOWDOWN_ARMOR_SUPER_LIGHT 0.10
 #define SLOWDOWN_ARMOR_VERY_LIGHT 0.20
 #define SLOWDOWN_ARMOR_LIGHT 0.35
 #define SLOWDOWN_ARMOR_MEDIUM 0.55
@@ -140,8 +145,8 @@
 #define WIELD_DELAY_VERY_SLOW 10
 #define WIELD_DELAY_HORRIBLE 12
 
-///This is how long you must wait after throwing something to throw again
-#define THROW_DELAY (0.4 SECONDS)
+///This is how long you must wait to throw again after throwing two things
+#define THROW_DELAY (1.5 SECONDS)
 
 //Explosion level thresholds. Upper bounds
 #define EXPLOSION_THRESHOLD_VLOW 50
@@ -200,6 +205,7 @@
 
 // human armor
 #define CLOTHING_ARMOR_NONE 0
+#define CLOTHING_ARMOR_VERYLOW 5
 #define CLOTHING_ARMOR_LOW 10
 #define CLOTHING_ARMOR_MEDIUMLOW 15
 #define CLOTHING_ARMOR_MEDIUM 20
@@ -219,6 +225,7 @@
 #define UNIFORM_HAS_SENSORS 1
 #define UNIFORM_FORCED_SENSORS 2
 
+#define EYE_PROTECTION_NEGATIVE -1
 #define EYE_PROTECTION_NONE 0
 #define EYE_PROTECTION_FLAVOR 1
 #define EYE_PROTECTION_FLASH 2
@@ -238,12 +245,14 @@
 //Health of various items
 #define HEALTH_WALL 3000
 #define HEALTH_WALL_REINFORCED 9000
+#define HEALTH_WALL_ULTRA_REINFORCED 12000
 #define HEALTH_WALL_XENO 900
 #define HEALTH_WALL_XENO_WEAK 100
 #define HEALTH_WALL_XENO_THICK 1350
 #define HEALTH_WALL_XENO_MEMBRANE 300
 #define HEALTH_WALL_XENO_REFLECTIVE 300
 #define HEALTH_WALL_XENO_MEMBRANE_THICK 600
+#define HEALTH_WALL_XENO_REFLECTIVE_WEAK 80
 
 #define HEALTH_DOOR 1200
 #define HEALTH_DOOR_XENO 600
@@ -275,7 +284,7 @@
 #define MOLOTOV_POTENCY_MAX 20
 #define MOLOTOV_TIME_MAX 20
 
-/// A gun filled with this percentage of it's total ammo or lower is considered to have low ammo
+/// A gun filled with this percentage of its total ammo or lower is considered to have low ammo
 #define GUN_LOW_AMMO_PERCENTAGE 0.25
 
 // Fire

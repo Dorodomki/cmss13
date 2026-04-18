@@ -11,9 +11,9 @@
  *
  */
 
-var/global/datum/entity/statistic/round/round_statistics
-var/global/list/datum/entity/player_entity/player_entities = list()
-var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracking_ids to tacbinos and signal flares
+GLOBAL_DATUM(round_statistics, /datum/entity/statistic/round)
+GLOBAL_LIST_INIT_TYPED(player_entities, /datum/entity/player_entity, list())
+GLOBAL_VAR_INIT(cas_tracking_id_increment, 0) //this var used to assign unique tracking_ids to tacbinos and signal flares
 /datum/game_mode
 	var/name = "invalid"
 	var/config_tag = null
@@ -29,7 +29,7 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 	var/is_in_endgame = FALSE //Set it to TRUE when we trigger DELTA alert or dropship crashes
 	/// When set and this gamemode is selected, the taskbar icon will change to the png selected here
 	var/taskbar_icon = 'icons/taskbar/gml_distress.png'
-	var/static_comms_amount = 0
+	var/static_comms_amount = 1
 	var/obj/structure/machinery/computer/shuttle/dropship/flight/active_lz = null
 
 	var/datum/entity/statistic/round/round_stats = null
@@ -39,6 +39,9 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 	var/corpses_to_spawn = 0
 
 	var/hardcore = FALSE
+
+	///Whether or not the fax response station has loaded.
+	var/loaded_fax_base = FALSE
 
 /datum/game_mode/New()
 	..()
@@ -50,19 +53,20 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 
 ///can_start()
 ///Checks to see if the game can be setup and ran with the current number of players or whatnot.
-/datum/game_mode/proc/can_start()
-	var/playerC = 0
+/datum/game_mode/proc/can_start(bypass_checks = FALSE)
+	if(bypass_checks)
+		return TRUE
+	var/players = 0
 	for(var/mob/new_player/player in GLOB.new_player_list)
-		if((player.client)&&(player.ready))
-			playerC++
-
-	if(master_mode=="secret")
-		if(playerC >= required_players_secret)
-			return 1
+		if(player.client && player.ready)
+			players++
+	if(GLOB.master_mode == "secret")
+		if(players >= required_players_secret)
+			return TRUE
 	else
-		if(playerC >= required_players)
-			return 1
-	return 0
+		if(players >= required_players)
+			return TRUE
+	return FALSE
 
 
 ///pre_setup()
@@ -74,6 +78,7 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 		spawn_static_comms()
 	if(corpses_to_spawn)
 		generate_corpses()
+	initialize_gamemode_modifiers()
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_MODE_PRESETUP)
 	return 1
 
@@ -100,39 +105,47 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 		SS.post_setup()
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_MODE_POSTSETUP)
 	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(display_roundstart_logout_report)), ROUNDSTART_LOGOUT_REPORT_TIME)
-
-	for(var/mob/new_player/np in GLOB.new_player_list)
-		np.new_player_panel_proc()
+	adjust_ammo_values()
+	round_time_lobby = world.time
 	log_game("Round started at [time2text(world.realtime)]")
+	log_game("Operation time at round start is [worldtime2text()]")
 	if(SSticker.mode)
-		log_game("Game mode set to [SSticker.mode]")
+		log_game("Game mode set to [SSticker.mode] on the [SSmapping.configs[GROUND_MAP].map_name] map")
 	log_game("Server IP: [world.internet_address]:[world.port]")
-	return 1
+	return TRUE
 
+/datum/game_mode/proc/adjust_ammo_values()
+	if(MODE_HAS_FLAG(MODE_FACTION_CLASH))
+		for(var/ammo in GLOB.ammo_list)
+			GLOB.ammo_list[ammo].setup_faction_clash_values()
+
+/datum/game_mode/proc/get_affected_zlevels()
+	if(is_in_endgame)
+		. = SSmapping.levels_by_trait(ZTRAIT_MARINE_MAIN_SHIP)
+		return
 
 ///process()
 ///Called by the gameticker
 /datum/game_mode/process()
-	return 0
+	return FALSE
 
 
 /datum/game_mode/proc/check_finished() //to be called by ticker
-	if(EvacuationAuthority.dest_status == NUKE_EXPLOSION_FINISHED || EvacuationAuthority.dest_status == NUKE_EXPLOSION_GROUND_FINISHED )
-		return TRUE
+	return
 
 /datum/game_mode/proc/cleanup() //This is called when the round has ended but not the game, if any cleanup would be necessary in that case.
 	return
 
 /datum/game_mode/proc/announce_ending()
-	if(round_statistics)
-		round_statistics.track_round_end()
+	if(GLOB.round_statistics)
+		GLOB.round_statistics.track_round_end()
 	log_game("Round end result: [round_finished]")
-	to_chat_spaced(world, margin_top = 2, type = MESSAGE_TYPE_SYSTEM, html = SPAN_ROUNDHEADER("|Round Complete|"))
-	to_chat_spaced(world, type = MESSAGE_TYPE_SYSTEM, html = SPAN_ROUNDBODY("Thus ends the story of the brave men and women of the [MAIN_SHIP_NAME] and their struggle on [SSmapping.configs[GROUND_MAP].map_name].\nThe game-mode was: [master_mode]!\nEnd of Round Grief (EORG) is an IMMEDIATE 3 hour ban with no warnings, see rule #3 for more details."))
+	to_chat_spaced(world, margin_top = 2, type = MESSAGE_TYPE_SYSTEM, html = SPAN_ROUNDHEADER("|Round Complete:[round_finished]|"))
+	to_chat_spaced(world, type = MESSAGE_TYPE_SYSTEM, html = SPAN_ROUNDBODY("Thus ends the story of the brave men and women of the [MAIN_SHIP_NAME] and their struggle on [SSmapping.configs[GROUND_MAP].map_name].\nThe game-mode was: [GLOB.master_mode]!\n[CONFIG_GET(string/endofroundblurb)]"))
 
 /datum/game_mode/proc/declare_completion()
-	if(round_statistics)
-		round_statistics.track_round_end()
+	if(GLOB.round_statistics)
+		GLOB.round_statistics.track_round_end()
 	var/clients = 0
 	var/surviving_humans = 0
 	var/surviving_total = 0
@@ -171,12 +184,12 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 
 		if(M.client && M.client.player_data)
 			if(M.stat == DEAD)
-				record_playtime(M.client.player_data, JOB_OBSERVER, type)
+				record_playtime(M.client.player_data, JOB_OBSERVER, M.type)
 			else
-				record_playtime(M.client.player_data, M.job, type)
+				record_playtime(M.client.player_data, M.job, M.type)
 
 /datum/game_mode/proc/show_end_statistics(icon_state)
-	round_statistics.update_panel_data()
+	GLOB.round_statistics.update_panel_data()
 	for(var/mob/M in GLOB.player_list)
 		if(M.client)
 			give_action(M, /datum/action/show_round_statistics, null, icon_state)
@@ -221,7 +234,7 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 	var/list/heads = list()
 	for(var/i in GLOB.alive_human_list)
 		var/mob/living/carbon/human/player = i
-		if(player.stat!=2 && player.mind && (player.job in ROLES_COMMAND ))
+		if(player.stat!=2 && player.mind && (player.job in GLOB.ROLES_COMMAND ))
 			heads += player.mind
 	return heads
 
@@ -232,7 +245,7 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 /datum/game_mode/proc/get_all_heads()
 	var/list/heads = list()
 	for(var/mob/player in GLOB.mob_list)
-		if(player.mind && (player.job in ROLES_COMMAND ))
+		if(player.mind && (player.job in GLOB.ROLES_COMMAND ))
 			heads += player.mind
 	return heads
 
@@ -245,32 +258,32 @@ var/global/cas_tracking_id_increment = 0 //this var used to assign unique tracki
 		var/obj/effect/landmark/corpsespawner/spawner = pick(gamemode_spawn_corpse)
 		var/turf/spawnpoint = get_turf(spawner)
 		if(spawnpoint)
-			var/mob/living/carbon/human/M = new /mob/living/carbon/human(spawnpoint)
-			M.create_hud() //Need to generate hud before we can equip anything apparently...
-			arm_equipment(M, spawner.equip_path, TRUE, FALSE)
+			var/mob/living/carbon/human/human_mob = new /mob/living/carbon/human(spawnpoint)
+			human_mob.create_hud() //Need to generate hud before we can equip anything apparently...
+			arm_equipment(human_mob, spawner.equip_path, TRUE, FALSE)
 			for(var/obj/structure/bed/nest/found_nest in spawnpoint)
 				for(var/turf/the_turf in list(get_step(found_nest, NORTH),get_step(found_nest, EAST),get_step(found_nest, WEST)))
 					if(the_turf.density)
 						found_nest.dir = get_dir(found_nest, the_turf)
 						found_nest.pixel_x = found_nest.buckling_x["[found_nest.dir]"]
 						found_nest.pixel_y = found_nest.buckling_y["[found_nest.dir]"]
-						M.dir = get_dir(the_turf,found_nest)
+						human_mob.dir = get_dir(the_turf,found_nest)
 				if(!found_nest.buckled_mob)
-					found_nest.do_buckle(M,M)
+					found_nest.forced_buckle_mob(human_mob,human_mob)
 		gamemode_spawn_corpse.Remove(spawner)
 
 /datum/game_mode/proc/spawn_static_comms()
 	for(var/i = 1 to static_comms_amount)
-		var/obj/effect/landmark/static_comms/SCO = pick_n_take(GLOB.comm_tower_landmarks_net_one)
-		var/obj/effect/landmark/static_comms/SCT = pick_n_take(GLOB.comm_tower_landmarks_net_two)
-		if(!SCO)
-			break
-		SCO.spawn_tower()
-		if(!SCT)
-			break
-		SCT.spawn_tower()
-	QDEL_NULL_LIST(GLOB.comm_tower_landmarks_net_one)
-	QDEL_NULL_LIST(GLOB.comm_tower_landmarks_net_two)
+		var/obj/effect/landmark/static_comms/tower
+		if(i % 2)
+			tower = pick_n_take(GLOB.comm_tower_landmarks_net_one)
+		else
+			tower = pick_n_take(GLOB.comm_tower_landmarks_net_two)
+		if(!tower)
+			continue
+		tower.spawn_tower()
+	QDEL_LIST(GLOB.comm_tower_landmarks_net_one)
+	QDEL_LIST(GLOB.comm_tower_landmarks_net_two)
 
 //////////////////////////
 //Reports player logouts//

@@ -42,24 +42,18 @@ structure:
 	icon_state = "event"
 
 	//no bioscan and no tunnels allowed
-	flags_area = AREA_AVOID_BIOSCAN|AREA_NOTUNNEL
+	flags_area = AREA_AVOID_BIOSCAN|AREA_NOBURROW
 
 	//events are not part of regular gameplay, therefore, no statistics
 	statistic_exempt = TRUE
 
-	//no dynamic lighting
-	exterior_light = 0
-	lighting_use_dynamic = FALSE
+	base_lighting_alpha = 255
 
 	//always powered
 	requires_power = FALSE
 	unlimited_power = TRUE
-
-/area/event/Initialize()
-	. = ..()
-	if(exterior_light)
-		for(var/turf/T in contents)
-			T.update_lumcount(exterior_light)
+	// ovi block timer is disabled so queens can do ovi stuff in event areas, namely USS runtime.
+	unoviable_timer = FALSE
 
 //no dynamic lighting, unpowered.
 /area/event/unpowered
@@ -75,9 +69,10 @@ structure:
 	icon_state = "event_dyn"
 	requires_power = TRUE
 	unlimited_power = TRUE
-	lighting_use_dynamic = TRUE
+	// Base lighting disabled so that normal lighting can function.
+	base_lighting_alpha = 0
 
-//no dynamic lighting, unpowered.
+//dynamic lighting, unpowered.
 /area/event/dynamic/unpowered
 	name = "Open grounds (event D)"
 	icon_state = "event_dyn_nopower"
@@ -89,7 +84,7 @@ structure:
 	name = "Open grounds (event PDL)"
 	icon_state = "event_dyn_lit"
 
-	exterior_light = 3
+	base_lighting_alpha = 255
 
 //dynamic lighting, lit, unpowered.
 /area/event/dynamic/lit/unpowered
@@ -122,9 +117,10 @@ structure:
 	icon_state = "metal_dyn"
 	requires_power = TRUE
 	unlimited_power = TRUE
-	lighting_use_dynamic = TRUE
+	// Base lighting disabled so that normal lighting can function.
+	base_lighting_alpha = 0
 
-//no dynamic lighting, unpowered.
+//dynamic lighting, unpowered.
 /area/event/metal/dynamic/unpowered
 	name = "Building interior (event D)"
 	icon_state = "metal_dyn_nopower"
@@ -137,7 +133,7 @@ structure:
 	name = "Building interior (event PDL)"
 	icon_state = "metal_dyn_lit"
 
-	exterior_light = 3
+	base_lighting_alpha = 255
 
 //dynamic lighting, lit, unpowered.
 /area/event/metal/dynamic/lit/unpowered
@@ -176,9 +172,10 @@ structure:
 	icon_state = "under_dyn"
 	requires_power = TRUE
 	unlimited_power = TRUE
-	lighting_use_dynamic = TRUE
+	// Base lighting disabled so that normal lighting can function.
+	base_lighting_alpha = 0
 
-//no dynamic lighting, unpowered.
+//dynamic lighting, unpowered.
 /area/event/underground/dynamic/unpowered
 	name = "Small caves (event D)"
 	icon_state = "under_dyn_nopower"
@@ -191,7 +188,7 @@ structure:
 	name = "Small caves (event PDL)"
 	icon_state = "under_dyn_lit"
 
-	exterior_light = 3
+	base_lighting_alpha = 255
 
 //dynamic lighting, lit, unpowered.
 /area/event/underground/dynamic/lit/unpowered
@@ -232,9 +229,10 @@ structure:
 	icon_state = "undercas_dyn"
 	requires_power = TRUE
 	unlimited_power = TRUE
-	lighting_use_dynamic = TRUE
+	// Base lighting disabled so that normal lighting can function.
+	base_lighting_alpha = 0
 
-//no dynamic lighting, unpowered.
+//dynamic lighting, unpowered.
 /area/event/underground_no_CAS/dynamic/unpowered
 	name = "Caves (event D)"
 	icon_state = "undercas_dyn_nopower"
@@ -246,7 +244,7 @@ structure:
 	name = "Caves (event PDL)"
 	icon_state = "undercas_dyn_lit"
 
-	exterior_light = 3
+	base_lighting_alpha = 255
 
 //dynamic lighting, lit, unpowered.
 /area/event/underground_no_CAS/dynamic/lit/unpowered
@@ -286,9 +284,10 @@ structure:
 	icon_state = "deep_dyn"
 	requires_power = TRUE
 	unlimited_power = TRUE
-	lighting_use_dynamic = TRUE
+	// Base lighting disabled so that normal lighting can function.
+	base_lighting_alpha = 0
 
-//no dynamic lighting, unpowered.
+//dynamic lighting, unpowered.
 /area/event/deep_underground/dynamic/unpowered
 	name = "Deep underground (event D)"
 	icon_state = "deep_dyn_nopower"
@@ -301,7 +300,7 @@ structure:
 	name = "Deep underground (event PDL)"
 	icon_state = "deep_dyn_lit"
 
-	exterior_light = 3
+	base_lighting_alpha = 255
 
 //dynamic lighting, lit, unpowered.
 /area/event/deep_underground/dynamic/lit/unpowered

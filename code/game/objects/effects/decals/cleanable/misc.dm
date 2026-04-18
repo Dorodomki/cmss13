@@ -5,14 +5,14 @@
 	density = FALSE
 	anchored = TRUE
 	layer = TURF_LAYER
-	icon = 'icons/obj/objects.dmi'
+	icon = 'icons/effects/effects.dmi'
 	icon_state = "shards"
 
 /obj/effect/decal/cleanable/ash
 	name = "ashes"
 	desc = "Ashes to ashes, dust to dust, and into space."
 	gender = PLURAL
-	icon = 'icons/obj/objects.dmi'
+	icon = 'icons/effects/effects.dmi'
 	icon_state = "ash"
 	anchored = TRUE
 
@@ -35,11 +35,20 @@
 	name = "glowing goo"
 	acid_damage = 1
 	icon_state = "greenglow"
-	luminosity = 1
+	light_range = 1
+	light_color = COLOR_LIGHT_GREEN
 
-/obj/effect/decal/cleanable/dirt/greenglow/Destroy()
-	SetLuminosity(0)
-	return ..()
+/obj/effect/decal/cleanable/dirt/alt_dirt
+	icon_state = "stain"
+
+/obj/effect/decal/cleanable/dirt/alt_dirt/stain
+	icon_state = "stain_alt"
+
+/obj/effect/decal/cleanable/dirt/alt_dirt/goo
+	icon_state = "goo"
+
+/obj/effect/decal/cleanable/dirt/alt_dirt/goo/goo_alt
+	icon_state = "goo_alt"
 
 /obj/effect/decal/cleanable/flour
 	name = "flour"
@@ -58,7 +67,8 @@
 	density = FALSE
 	anchored = TRUE
 	layer = TURF_LAYER
-	luminosity = 1
+	light_range = 1
+	light_color = COLOR_LIGHT_GREEN
 	icon = 'icons/effects/effects.dmi'
 	icon_state = "greenglow"
 
@@ -67,10 +77,6 @@
 		return INITIALIZE_HINT_QDEL
 	. = ..()
 	QDEL_IN(WEAKREF(src), 2 MINUTES)
-
-/obj/effect/decal/cleanable/greenglow/Destroy()
-	SetLuminosity(0)
-	return ..()
 
 /obj/effect/decal/cleanable/cobweb
 	name = "cobweb"
@@ -105,8 +111,9 @@
 	alpha = 80
 	appearance_flags = RESET_ALPHA | TILE_BOUND | PIXEL_SCALE
 	garbage = FALSE
+
 /obj/effect/decal/cleanable/cobweb2/dynamic/Initialize(mapload, targetdir, webscale = 1.0)
-	alpha += round(webscale * 120)
+	alpha += floor(webscale * 120)
 	var/angle = dir2angle(targetdir)
 	var/matrix/TM = new
 	TM *= webscale
@@ -148,7 +155,7 @@
 	anchored = TRUE
 	layer = TURF_LAYER
 	icon = 'icons/effects/effects.dmi'
-	random_icon_states = list("smashed_egg1", "smashed_egg2", "smashed_egg3")
+	random_icon_states = list("smashed_egg1", "smashed_egg2", "smashed_egg3", "smashed_egg4")
 
 /obj/effect/decal/cleanable/pie_smudge //honk
 	name = "smashed pie"
@@ -163,13 +170,15 @@
 	name = "black goo"
 	desc = "It's thick and gooey."
 	gender = PLURAL
+	anchored = TRUE
 	icon = 'icons/effects/effects.dmi'
 	icon_state = "blackgoo"
 
 /obj/effect/decal/cleanable/blackgoo/Crossed(mob/living/carbon/human/H)
-	if(!istype(H)) return
+	if(!istype(H))
+		return
 	if(H.species.name == "Human")
-		if(!H.shoes || prob(25))
+		if(!H.shoes && prob(50))
 			H.contract_disease(new /datum/disease/black_goo)
 
 

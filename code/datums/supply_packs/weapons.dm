@@ -1,13 +1,3 @@
-/datum/supply_packs/m56b_smartgun
-	name = "M56B Smartgun System Package (x1)"
-	contains = list(
-		/obj/item/storage/box/m56_system,
-	)
-	cost = 100
-	containertype = /obj/structure/closet/crate/weapon
-	containername = "M56B Smartgun System Package"
-	group = "Weapons"
-
 /datum/supply_packs/m56_hmg
 	name = "M56D Heavy Machine Gun (x1)"
 	contains = list(
@@ -42,14 +32,14 @@
 	group = "Weapons"
 
 /datum/supply_packs/grenade_launchers
-	name = "M79 Grenade Launcher Crate (x2 Guncasess)"
+	name = "M85A1 Grenade Launcher Crate (x2 Guncases)"
 	contains = list(
-		/obj/item/storage/box/guncase/m79,
-		/obj/item/storage/box/guncase/m79,
+		/obj/item/storage/box/guncase/m85a1,
+		/obj/item/storage/box/guncase/m85a1,
 	)
 	cost = 40
 	containertype = /obj/structure/closet/crate/weapon
-	containername = "M79 grenade launcher crate"
+	containername = "M85A1 grenade launcher crate"
 	group = "Weapons"
 
 /datum/supply_packs/mou53
@@ -60,7 +50,7 @@
 	)
 	cost = 30
 	containertype = /obj/structure/closet/crate/weapon
-	containername = "MOU-53 Breack Action Shotgun Crate"
+	containername = "MOU-53 Break Action Shotgun Crate"
 	group = "Weapons"
 
 /datum/supply_packs/smartpistol
@@ -120,11 +110,12 @@
 	containername = "\improper XM88 Heavy Rifle crate"
 	group = "Weapons"
 
-/datum/supply_packs/gun/merc
+/* Uncomment me if it's decided to let the m707 be purchasable through req
+/datum/supply_packs/gun/m707
+	name = "M707 Anti-Materiel Rifle crate (M707 x1)"
 	contains = list()
-	name = "black market firearms (x1)"
-	cost = 40
-	contraband = 1
-	containertype = /obj/structure/largecrate/guns/merc
-	containername = "\improper black market firearms crate"
+	cost = 120
+	containertype = /obj/structure/closet/crate/secure/vulture
+	containername = "M707 crate"
 	group = "Weapons"
+*/

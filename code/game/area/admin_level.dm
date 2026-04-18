@@ -3,14 +3,13 @@
 
 /area/adminlevel
 	ceiling = CEILING_METAL
+	base_lighting_alpha = 255
 
 /area/adminlevel/bunker01
 	icon_state = "thunder"
 	requires_power = FALSE
 	statistic_exempt = TRUE
-	flags_area = AREA_NOTUNNEL
-	luminosity = TRUE
-	lighting_use_dynamic = FALSE
+	flags_area = AREA_NOBURROW
 
 /area/adminlevel/bunker01/mainroom
 	name = "\improper Bunker Main Room"
@@ -78,8 +77,7 @@
 	ceiling = CEILING_UNDERGROUND_ALLOW_CAS
 	always_unpowered = TRUE
 	requires_power = TRUE
-	lighting_use_dynamic = TRUE
-	luminosity = FALSE
+	base_lighting_alpha = 0
 
 /area/adminlevel/bunker01/caves/outpost
 	name = "\improper Bunker Outpost"
@@ -87,14 +85,12 @@
 	ceiling = CEILING_UNDERGROUND_ALLOW_CAS
 	requires_power = TRUE
 	always_unpowered = FALSE
-	lighting_use_dynamic = TRUE
-	luminosity = FALSE
 
 /area/adminlevel/bunker01/caves/xeno
 	name = "\improper Bunker Xeno Hive"
 	icon_state = "bunker01_caves_outpost"
 	ceiling = CEILING_UNDERGROUND_ALLOW_CAS
-	flags_area = AREA_NOTUNNEL|AREA_ALLOW_XENO_JOIN
+	flags_area = AREA_NOBURROW|AREA_ALLOW_XENO_JOIN
 
 	var/hivenumber = XENO_HIVE_ALPHA
 
@@ -111,11 +107,15 @@
 	name = "ERT Station"
 	icon_state = "green"
 	requires_power = FALSE
-	flags_area = AREA_NOTUNNEL
+	flags_area = AREA_NOBURROW
 
 /area/adminlevel/ert_station/upp_station
 	name = "UPP Station"
 	icon_state = "green"
+
+/area/adminlevel/ert_station/pizza_station
+	name = "Pizza Galaxy"
+	icon_state = "red"
 
 /area/adminlevel/ert_station/clf_station
 	name = "CLF Station"
@@ -125,22 +125,77 @@
 	name = "Weyland-Yutani Station"
 	icon_state = "red"
 
+/area/adminlevel/ert_station/uscm_station
+	name = "USCM Station"
+	icon_state = "green"
+
 /area/adminlevel/ert_station/freelancer_station
 	name = "Freelancer Station"
 	icon_state = "yellow"
+
+/area/adminlevel/ert_station/royal_marines_station
+	name = "HMS Patna Hangerbay"
+	icon_state = "yellow"
+
+/area/adminlevel/ert_station/yautja_station
+	name = "Yautja Prime High Orbit"
+	icon_state = "red"
+	base_lighting_alpha = 155
+	base_lighting_color = "#ffc49c"
+	flags_area = AREA_NOBURROW|AREA_YAUTJA_GROUNDS
 
 /area/adminlevel/ert_station/shuttle_dispatch
 	name = "Shuttle Dispatch Station"
 	soundscape_playlist = SCAPE_PL_ELEVATOR_MUSIC
 	icon_state = "yellow"
 
+//Fax Responder areas
+/area/adminlevel/ert_station/fax_response_station
+	name = "Sector Comms Relay"
+	icon_state = "green"
+	unlimited_power = TRUE
+	flags_area = AREA_AVOID_BIOSCAN
+
+/area/adminlevel/ert_station/fax_response_station/exterior
+	name = "Sector Comms Relay"
+	icon_state = "red"
+	ambience_exterior = AMBIENCE_JUNGLE
+	//ambience = list('sound/ambience/jungle_amb1.ogg')
+	base_lighting_alpha = 185
+
 //Simulation area
 /area/adminlevel/simulation
 	name = "Simulated Reality"
 	icon_state = "green"
 	requires_power = 0
-	flags_area = AREA_NOTUNNEL
+	flags_area = AREA_NOBURROW
+
+/area/misc
+	weather_enabled = FALSE
 
 /area/misc/testroom
 	requires_power = FALSE
 	name = "Test Room"
+
+/area/misc/tutorial
+	name = "Tutorial Zone"
+	icon_state = "tutorial"
+	requires_power = FALSE
+	unlimited_power = TRUE
+	flags_area = AREA_NOBURROW|AREA_AVOID_BIOSCAN
+	statistic_exempt = TRUE
+	ceiling = CEILING_METAL
+	block_game_interaction = TRUE
+	unique = TRUE
+
+	base_lighting_alpha = 255
+
+/area/misc/tutorial/Initialize(mapload, ...)
+	. = ..()
+	update_base_lighting()
+
+/area/misc/tutorial/no_baselight
+	base_lighting_alpha = 0
+
+/area/misc/tutorial/no_baselight/open
+	ceiling = CEILING_NONE

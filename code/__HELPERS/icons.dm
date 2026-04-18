@@ -14,8 +14,7 @@ CHANGING ICONS
 
 Several new procs have been added to the /icon datum to simplify working with icons. To use them,
 remember you first need to setup an /icon var like so:
-
-var/icon/my_icon = new('iconfile.dmi')
+	var/icon/my_icon = new('iconfile.dmi')
 
 icon/ChangeOpacity(amount = 1)
 	A very common operation in DM is to try to make an icon more or less transparent. Making an icon more
@@ -119,7 +118,7 @@ ColorTone(rgb, tone)
 /*
 Get Flat Icon DEMO by DarkCampainger
 
-This is a test for the get flat icon proc, modified approprietly for icons and their states.
+This is a test for the get flat icon proc, modified appropriately for icons and their states.
 Probably not a good idea to run this unless you want to see how the proc works in detail.
 mob
 	icon = 'old_or_unused.dmi'
@@ -231,7 +230,7 @@ world
 /icon/proc/ColorTone(tone)
 	GrayScale()
 
-	var/list/TONE = ReadRGB(tone)
+	var/list/TONE = rgb2num(tone)
 	var/gray = round(TONE[1]*0.3 + TONE[2]*0.59 + TONE[3]*0.11, 1)
 
 	var/icon/upper = (255-gray) ? new(src) : null
@@ -239,7 +238,8 @@ world
 	if(gray)
 		MapColors(255/gray,0,0, 0,255/gray,0, 0,0,255/gray, 0,0,0)
 		Blend(tone, ICON_MULTIPLY)
-	else SetIntensity(0)
+	else
+		SetIntensity(0)
 	if(255-gray)
 		upper.Blend(rgb(gray,gray,gray), ICON_SUBTRACT)
 		upper.MapColors((255-TONE[1])/(255-gray),0,0,0, 0,(255-TONE[2])/(255-gray),0,0, 0,0,(255-TONE[3])/(255-gray),0, 0,0,0,0, 0,0,0,1)
@@ -273,226 +273,149 @@ world
 		Higher value means brighter color
  */
 
-/proc/ReadRGB(rgb)
-	if(!rgb) return
-
-	// interpret the HSV or HSVA value
-	var/i=1,start=1
-	if(text2ascii(rgb) == 35) ++start // skip opening #
-	var/ch,which=0,r=0,g=0,b=0,alpha=0,usealpha
-	var/digits=0
-	for(i=start, i<=length(rgb), ++i)
-		ch = text2ascii(rgb, i)
-		if(ch < 48 || (ch > 57 && ch < 65) || (ch > 70 && ch < 97) || ch > 102) break
-		++digits
-		if(digits == 8) break
-
-	var/single = digits < 6
-	if(digits != 3 && digits != 4 && digits != 6 && digits != 8) return
-	if(digits == 4 || digits == 8) usealpha = 1
-	for(i=start, digits>0, ++i)
-		ch = text2ascii(rgb, i)
-		if(ch >= 48 && ch <= 57) ch -= 48
-		else if(ch >= 65 && ch <= 70) ch -= 55
-		else if(ch >= 97 && ch <= 102) ch -= 87
-		else break
-		--digits
-		switch(which)
-			if(0)
-				r = (r << 4)|ch
-				if(single)
-					r |= r << 4
-					++which
-				else if(!(digits & 1)) ++which
-			if(1)
-				g = (g << 4)|ch
-				if(single)
-					g |= g << 4
-					++which
-				else if(!(digits & 1)) ++which
-			if(2)
-				b = (b << 4)|ch
-				if(single)
-					b |= b << 4
-					++which
-				else if(!(digits & 1)) ++which
-			if(3)
-				alpha = (alpha << 4)|ch
-				if(single) alpha |= alpha << 4
-
-	. = list(r, g, b)
-	if(usealpha) . += alpha
-
-
-
 /// Create a single [/icon] from a given [/atom] or [/image].
 ///
 /// Very low-performance. Should usually only be used for HTML, where BYOND's
 /// appearance system (overlays/underlays, etc.) is not available.
 ///
 /// Only the first argument is required.
-/proc/getFlatIcon(image/A, defdir, deficon, defstate, defblend, start = TRUE, no_anim = FALSE)
-	//Define... defines.
+/// appearance_flags indicates whether appearance_flags should be respected (at the cost of about 10-20% perf)
+/proc/getFlatIcon(image/appearance, defdir, deficon, defstate, defblend, start = TRUE, no_anim = FALSE, appearance_flags = FALSE)
+	// Loop through the underlays, then overlays, sorting them into the layers list
+	#define PROCESS_OVERLAYS_OR_UNDERLAYS(flat, process, base_layer) \
+		for (var/i in 1 to length(process)) { \
+			var/image/current = process[i]; \
+			if (!current) { \
+				continue; \
+			} \
+			if (current.plane != FLOAT_PLANE && current.plane != appearance.plane) { \
+				continue; \
+			} \
+			var/current_layer = current.layer; \
+			if (current_layer < 0) { \
+				if (current_layer <= -1000) { \
+					return flat; \
+				} \
+				current_layer = base_layer + appearance.layer + current_layer / 1000; \
+			} \
+			for (var/index_to_compare_to in 1 to length(layers)) { \
+				var/compare_to = layers[index_to_compare_to]; \
+				if (current_layer < layers[compare_to]) { \
+					layers.Insert(index_to_compare_to, current); \
+					break; \
+				} \
+			} \
+			layers[current] = current_layer; \
+		}
+
 	var/static/icon/flat_template = icon('icons/effects/effects.dmi', "nothing")
 
-	#define BLANK icon(flat_template)
-	#define GENERATE_FLAT_IMAGE_ICON(ICON_VAR, IMG_SOURCE, icon_to_use, icon_state_to_use, dir_to_use)\
-		var/icon/SELF_ICON=icon(icon(icon_to_use, icon_state_to_use, dir_to_use), "", SOUTH, no_anim ? 1 : null);\
-		if(##IMG_SOURCE.alpha < 255)\
-			SELF_ICON.Blend(rgb(255, 255, 255, ##IMG_SOURCE.alpha), ICON_MULTIPLY);\
-		if(##IMG_SOURCE.color) {\
-			if(islist(##IMG_SOURCE.color))\
-				SELF_ICON.MapColors(arglist(##IMG_SOURCE.color));\
-			else\
-				SELF_ICON.Blend(##IMG_SOURCE.color, ICON_MULTIPLY);\
-		}\
-		##ICON_VAR = SELF_ICON;
-	#define INDEX_X_LOW 1
-	#define INDEX_X_HIGH 2
-	#define INDEX_Y_LOW 3
-	#define INDEX_Y_HIGH 4
+	if(!appearance || appearance.alpha <= 0)
+		return icon(flat_template)
 
-	#define flatX1 flat_size[INDEX_X_LOW]
-	#define flatX2 flat_size[INDEX_X_HIGH]
-	#define flatY1 flat_size[INDEX_Y_LOW]
-	#define flatY2 flat_size[INDEX_Y_HIGH]
-	#define addX1 add_size[INDEX_X_LOW]
-	#define addX2 add_size[INDEX_X_HIGH]
-	#define addY1 add_size[INDEX_Y_LOW]
-	#define addY2 add_size[INDEX_Y_HIGH]
-
-	#define PROCESS_SET_UNDERLAYS 0
-	#define PROCESS_SET_VIS_CONTENTS 1
-	#define PROCESS_SET_OVERLAYS 2
-
-	if(!A || A.alpha <= 0)
-		return BLANK
-
-	var/noIcon = FALSE
 	if(start)
 		if(!defdir)
-			defdir = A.dir
+			defdir = appearance.dir
 		if(!deficon)
-			deficon = A.icon
+			deficon = appearance.icon
 		if(!defstate)
-			defstate = A.icon_state
+			defstate = appearance.icon_state
 		if(!defblend)
-			defblend = A.blend_mode
+			defblend = appearance.blend_mode
 
-	var/curicon = A.icon || deficon
-	var/curstate = A.icon_state || defstate
+	var/curicon = appearance.icon || deficon
+	var/curstate = appearance.icon_state || defstate
+	var/curdir = (!appearance.dir || appearance.dir == SOUTH) ? defdir : appearance.dir
 
-	if(!(noIcon = (!curicon)))
+	var/render_icon = curicon
+
+	if (render_icon)
 		var/curstates = icon_states(curicon)
 		if(!(curstate in curstates))
-			if("" in curstates)
+			if ("" in curstates)
 				curstate = ""
 			else
-				noIcon = TRUE // Do not render this object.
+				render_icon = FALSE
 
-	var/curdir
 	var/base_icon_dir //We'll use this to get the icon state to display if not null BUT NOT pass it to overlays as the dir we have
-
-	//These should use the parent's direction (most likely)
-	if(!A.dir || A.dir == SOUTH)
-		curdir = defdir
-	else
-		curdir = A.dir
 
 	//Try to remove/optimize this section ASAP, CPU hog.
 	//Determines if there's directionals.
-	if(!noIcon && curdir != SOUTH)
-		var/exist = FALSE
-		var/static/list/checkdirs = list(NORTH, EAST, WEST)
-		for(var/i in checkdirs) //Not using GLOB for a reason.
-			if(length(icon_states(icon(curicon, curstate, i))))
-				exist = TRUE
-				break
-		if(!exist)
+	if(render_icon && curdir != SOUTH)
+		if (
+			!length(icon_states(icon(curicon, curstate, NORTH))) \
+			&& !length(icon_states(icon(curicon, curstate, EAST))) \
+			&& !length(icon_states(icon(curicon, curstate, WEST))) \
+		)
 			base_icon_dir = SOUTH
 
 	if(!base_icon_dir)
 		base_icon_dir = curdir
 
-	ASSERT(!BLEND_DEFAULT) //I might just be stupid but lets make sure this define is 0.
+	var/curblend = appearance.blend_mode || defblend
 
-	var/curblend = A.blend_mode || defblend
-
-	var/atom/movable/AM = A
-	if(length(A.overlays) || length(A.underlays) || (istype(AM) && AM.vis_contents))
-		var/icon/flat = BLANK
+	if(length(appearance.overlays) || length(appearance.underlays))
+		var/icon/flat = icon(flat_template)
 		// Layers will be a sorted list of icons/overlays, based on the order in which they are displayed
 		var/list/layers = list()
 		var/image/copy
 		// Add the atom's icon itself, without pixel_x/y offsets.
-		if(!noIcon)
-			copy = image(icon=curicon, icon_state=curstate, layer=A.layer, dir=base_icon_dir)
-			copy.color = A.color
-			copy.alpha = A.alpha
+		if(render_icon)
+			copy = image(icon=curicon, icon_state=curstate, layer=appearance.layer, dir=base_icon_dir)
+			copy.color = appearance.color
+			copy.alpha = appearance.alpha
 			copy.blend_mode = curblend
-			layers[copy] = A.layer
+			layers[copy] = appearance.layer
 
-		// Loop through the underlays, then vis_contents, then overlays, sorting them into the layers list
-		for(var/process_set in PROCESS_SET_UNDERLAYS to PROCESS_SET_OVERLAYS)
-			var/list/process
-			switch(process_set)
-				if(PROCESS_SET_UNDERLAYS)
-					process = A.underlays
-				if(PROCESS_SET_VIS_CONTENTS)
-					if(!istype(AM))
-						continue
-					process = A.vis_contents
-				else // PROCESS_SET_OVERLAYS
-					process = A.overlays
-			for(var/i in 1 to process.len)
-				var/image/current = process[i]
-				if(!current)
-					continue
-				if(process_set == PROCESS_SET_VIS_CONTENTS && !istype(current))
-					current = image(icon = current.icon, icon_state = current.icon_state, layer = current.layer, dir = current.dir)
-				var/current_layer = current.layer
-				if(current_layer < 0)
-					if(current_layer <= -1000)
-						return flat
-					current_layer = A.layer + ((process_set ? 1000 : 0)+current_layer) / 1000
-
-				for(var/p in 1 to layers.len)
-					var/image/cmp = layers[p]
-					if(current_layer < layers[cmp])
-						layers.Insert(p, current)
-						break
-				layers[current] = current_layer
+		PROCESS_OVERLAYS_OR_UNDERLAYS(flat, appearance.underlays, 0)
+		PROCESS_OVERLAYS_OR_UNDERLAYS(flat, appearance.overlays, 1)
 
 		var/icon/add // Icon of overlay being added
 
-		// Current dimensions of flattened icon
-		var/list/flat_size = list(1, flat.Width(), 1, flat.Height())
-		// Dimensions of overlay being added
-		var/list/add_size[4]
+		var/flatX1 = 1
+		var/flatX2 = flat.Width()
+		var/flatY1 = 1
+		var/flatY2 = flat.Height()
 
-		for(var/V in layers)
-			var/image/I = V
-			if(I.alpha == 0)
+		var/addX1 = 0
+		var/addX2 = 0
+		var/addY1 = 0
+		var/addY2 = 0
+
+		for(var/image/layer_image as anything in layers)
+			if(layer_image.alpha == 0)
 				continue
 
-			if(I == copy) // 'I' is an /image based on the object being flattened.
+			// variables only relevant when accounting for appearance_flags:
+			var/apply_color = TRUE
+			var/apply_alpha = TRUE
+
+			if(layer_image == copy) // 'layer_image' is an /image based on the object being flattened.
 				curblend = BLEND_OVERLAY
-				add = icon(I.icon, I.icon_state, base_icon_dir)
-			else // 'I' is an /image
-				var/image_has_icon = I.icon
-				if(image_has_icon)
-					GENERATE_FLAT_IMAGE_ICON(add, I, I.icon, I.icon_state, base_icon_dir)
+				add = icon(layer_image.icon, layer_image.icon_state, base_icon_dir)
+			else // 'I' is an appearance object.
+				var/image/layer_as_image = image(layer_image)
+				if(appearance_flags)
+					if(layer_as_image.appearance_flags & RESET_COLOR)
+						apply_color = FALSE
+					if(layer_as_image.appearance_flags & RESET_ALPHA)
+						apply_alpha = FALSE
+				add = getFlatIcon(layer_as_image, curdir, curicon, curstate, curblend, FALSE, no_anim, appearance_flags)
 			if(!add)
 				continue
-			// Find the new dimensions of the flat icon to fit the added overlay
-			add_size = list(
-				min(flatX1, I.pixel_x+1),
-				max(flatX2, I.pixel_x+add.Width()),
-				min(flatY1, I.pixel_y+1),
-				max(flatY2, I.pixel_y+add.Height())
-			)
 
-			if(flat_size ~! add_size)
+			// Find the new dimensions of the flat icon to fit the added overlay
+			addX1 = min(flatX1, layer_image.pixel_x + 1)
+			addX2 = max(flatX2, layer_image.pixel_x + add.Width())
+			addY1 = min(flatY1, layer_image.pixel_y + 1)
+			addY2 = max(flatY2, layer_image.pixel_y + add.Height())
+
+			if (
+				addX1 != flatX1 \
+				|| addX2 != flatX2 \
+				|| addY1 != flatY1 \
+				|| addY2 != flatY2 \
+			)
 				// Resize the flattened icon so the new icon fits
 				flat.Crop(
 					addX1 - flatX1 + 1,
@@ -500,53 +423,66 @@ world
 					addX2 - flatX1 + 1,
 					addY2 - flatY1 + 1
 				)
-				flat_size = add_size.Copy()
+
+				flatX1 = addX1
+				flatX2 = addX2
+				flatY1 = addY1
+				flatY2 = addY2
+
+			if(appearance_flags)
+				// apply parent's color/alpha to the added layers if the layer didn't opt
+				if(apply_color && appearance.color)
+					if(islist(appearance.color))
+						add.MapColors(arglist(appearance.color))
+					else
+						add.Blend(appearance.color, ICON_MULTIPLY)
+
+				if(apply_alpha && appearance.alpha < 255)
+					add.Blend(rgb(255, 255, 255, appearance.alpha), ICON_MULTIPLY)
 
 			// Blend the overlay into the flattened icon
-			flat.Blend(add, blendMode2iconMode(curblend), I.pixel_x + 2 - flatX1, I.pixel_y + 2 - flatY1)
+			flat.Blend(add, blendMode2iconMode(curblend), layer_image.pixel_x + 2 - flatX1, layer_image.pixel_y + 2 - flatY1)
 
-		if(A.color)
-			if(islist(A.color))
-				flat.MapColors(arglist(A.color))
-			else
-				flat.Blend(A.color, ICON_MULTIPLY)
+		if(!appearance_flags)
+			// If we didn't apply parent colors individually per layer respecting appearance_flags, then do it just the one time now
+			if(appearance.color)
+				if(islist(appearance.color))
+					flat.MapColors(arglist(appearance.color))
+				else
+					flat.Blend(appearance.color, ICON_MULTIPLY)
 
-		if(A.alpha < 255)
-			flat.Blend(rgb(255, 255, 255, A.alpha), ICON_MULTIPLY)
+			if(appearance.alpha < 255)
+				flat.Blend(rgb(255, 255, 255, appearance.alpha), ICON_MULTIPLY)
 
 		if(no_anim)
 			//Clean up repeated frames
-			var/icon/cleaned = new /icon()
+			// Done this way otherwise Width() and Height() would always be 0 for this icon
+			var/icon/cleaned = icon('icons/effects/effects.dmi', "nothing")
 			cleaned.Insert(flat, "", SOUTH, 1, 0)
-			. = cleaned
+			return cleaned
 		else
-			. = icon(flat, "", SOUTH)
-	else //There's no overlays.
-		if(!noIcon)
-			GENERATE_FLAT_IMAGE_ICON(., A, curicon, curstate, base_icon_dir)
+			return icon(flat, "", SOUTH)
+	else if (render_icon) // There's no overlays.
+		var/icon/final_icon = icon(icon(curicon, curstate, base_icon_dir), "", SOUTH, no_anim ? TRUE : null)
 
-	//Clear defines
-	#undef flatX1
-	#undef flatX2
-	#undef flatY1
-	#undef flatY2
-	#undef addX1
-	#undef addX2
-	#undef addY1
-	#undef addY2
+		if (appearance.alpha < 255)
+			final_icon.Blend(rgb(255,255,255, appearance.alpha), ICON_MULTIPLY)
 
-	#undef INDEX_X_LOW
-	#undef INDEX_X_HIGH
-	#undef INDEX_Y_LOW
-	#undef INDEX_Y_HIGH
+		if (appearance.color)
+			if (islist(appearance.color))
+				final_icon.MapColors(arglist(appearance.color))
+			else
+				final_icon.Blend(appearance.color, ICON_MULTIPLY)
 
-	#undef GENERATE_FLAT_IMAGE_ICON
-	#undef BLANK
+		return final_icon
+
+	#undef PROCESS_OVERLAYS_OR_UNDERLAYS
 
 /proc/getIconMask(atom/A)//By yours truly. Creates a dynamic mask for a mob/whatever. /N
 	var/icon/alpha_mask = new(A.icon,A.icon_state)//So we want the default icon and icon state of A.
 	for(var/I in A.overlays)//For every image in overlays. var/image/I will not work, don't try it.
-		if(I:layer>A.layer) continue//If layer is greater than what we need, skip it.
+		if(I:layer>A.layer)
+			continue//If layer is greater than what we need, skip it.
 		var/icon/image_overlay = new(I:icon,I:icon_state)//Blend only works with icon objects.
 		//Also, icons cannot directly set icon_state. Slower than changing variables but whatever.
 		alpha_mask.Blend(image_overlay,ICON_OR)//OR so they are lumped together in a nice overlay.
@@ -564,31 +500,30 @@ world
 	if (!color) return "#FFFFFF"
 	if (!value) return color
 
-	var/list/RGB = ReadRGB(color)
-	RGB[1] = Clamp(RGB[1]+value,0,255)
-	RGB[2] = Clamp(RGB[2]+value,0,255)
-	RGB[3] = Clamp(RGB[3]+value,0,255)
+	var/list/RGB = rgb2num(color)
+	RGB[1] = clamp(RGB[1]+value,0,255)
+	RGB[2] = clamp(RGB[2]+value,0,255)
+	RGB[3] = clamp(RGB[3]+value,0,255)
 	return rgb(RGB[1],RGB[2],RGB[3])
 
 /proc/sort_atoms_by_layer(list/atoms)
 	// Comb sort icons based on levels
 	var/list/result = atoms.Copy()
-	var/gap = result.len
+	var/gap = length(result)
 	var/swapped = 1
 	while (gap > 1 || swapped)
 		swapped = 0
 		if(gap > 1)
-			gap = round(gap / 1.3) // 1.3 is the emperic comb sort coefficient
+			gap = floor(gap / 1.3) // 1.3 is the emperic comb sort coefficient
 		if(gap < 1)
 			gap = 1
-		for(var/i = 1; gap + i <= result.len; i++)
+		for(var/i = 1; gap + i <= length(result); i++)
 			var/atom/l = result[i] //Fucking hate
 			var/atom/r = result[gap+i] //how lists work here
 			if(l.layer > r.layer) //no "result[i].layer" for me
 				result.Swap(i, gap + i)
 				swapped = 1
 	return result
-
 
 /image/proc/flick_overlay(atom/A, duration) //originally code related to goonPS. This isn't the original code, but has the same effect
 	A.overlays.Add(src)
@@ -599,7 +534,7 @@ world
 		A.overlays.Remove(src)
 
 /mob/proc/flick_heal_overlay(time, color = "#00FF00") //used for warden and queen healing
-	var/image/I = image('icons/mob/mob.dmi', src, "heal_overlay")
+	var/image/I = image('icons/mob/do_afters.dmi', src, "heal_overlay")
 	switch(icon_size)
 		if(48)
 			I.pixel_x = 8
@@ -611,12 +546,156 @@ world
 	I.color = color
 	I.flick_overlay(src, time)
 
-/proc/icon2html(thing, target, icon_state, dir = SOUTH, frame = 1, moving = FALSE, sourceonly = FALSE)
+/// generates a filename for a given asset.
+/// like generate_asset_name(), except returns the rsc reference and the rsc file hash as well as the asset name (sans extension)
+/// used so that certain asset files don't have to be hashed twice
+/proc/generate_and_hash_rsc_file(file, dmi_file_path)
+	var/rsc_ref = fcopy_rsc(file)
+	var/hash
+	//if we have a valid dmi file path we can trust md5'ing the rsc file because we know it doesn't have the bug described in http://www.byond.com/forum/post/2611357
+	if(dmi_file_path)
+		hash = md5(rsc_ref)
+	else //otherwise, we need to do the expensive fcopy() workaround
+		hash = md5asfile(rsc_ref)
+
+	return list(rsc_ref, hash, "asset.[hash]")
+
+///given a text string, returns whether it is a valid dmi icons folder path
+/proc/is_valid_dmi_file(icon_path)
+	if(!istext(icon_path) || !length(icon_path))
+		return FALSE
+
+	var/is_in_icon_folder = findtextEx(icon_path, "icons/")
+	var/is_dmi_file = findtextEx(icon_path, ".dmi")
+
+	if(is_in_icon_folder && is_dmi_file)
+		return TRUE
+	return FALSE
+
+/// given an icon object, dmi file path, or atom/image/mutable_appearance, attempts to find and return an associated dmi file path.
+/// a weird quirk about dm is that /icon objects represent both compile-time or dynamic icons in the rsc,
+/// but stringifying rsc references returns a dmi file path
+/// ONLY if that icon represents a completely unchanged dmi file from when the game was compiled.
+/// so if the given object is associated with an icon that was in the rsc when the game was compiled, this returns a path. otherwise it returns ""
+/proc/get_icon_dmi_path(icon/icon)
+	/// the dmi file path we attempt to return if the given object argument is associated with a stringifiable icon
+	/// if successful, this looks like "icons/path/to/dmi_file.dmi"
+	var/icon_path = ""
+
+	if(isatom(icon) || istype(icon, /image) || istype(icon, /mutable_appearance))
+		var/atom/atom_icon = icon
+		icon = atom_icon.icon
+		//atom icons compiled in from 'icons/path/to/dmi_file.dmi' are weird and not really icon objects that you generate with icon().
+		//if theyre unchanged dmi's then they're stringifiable to "icons/path/to/dmi_file.dmi"
+
+	if(isicon(icon) && isfile(icon))
+		//icons compiled in from 'icons/path/to/dmi_file.dmi' at compile time are weird and aren't really /icon objects,
+		///but they pass both isicon() and isfile() checks. theyre the easiest case since stringifying them gives us the path we want
+		var/icon_ref = text_ref(icon)
+		var/locate_icon_string = "[locate(icon_ref)]"
+
+		icon_path = locate_icon_string
+
+	else if(isicon(icon) && "[icon]" == "/icon")
+		// icon objects generated from icon() at runtime are icons, but they ARENT files themselves, they represent icon files.
+		// if the files they represent are compile time dmi files in the rsc, then
+		// the rsc reference returned by fcopy_rsc() will be stringifiable to "icons/path/to/dmi_file.dmi"
+		var/rsc_ref = fcopy_rsc(icon)
+
+		var/icon_ref = text_ref(rsc_ref)
+
+		var/icon_path_string = "[locate(icon_ref)]"
+
+		icon_path = icon_path_string
+
+	else if(istext(icon))
+		var/rsc_ref = fcopy_rsc(icon)
+		//if its the text path of an existing dmi file, the rsc reference returned by fcopy_rsc() will be stringifiable to a dmi path
+
+		var/rsc_ref_ref = text_ref(rsc_ref)
+		var/rsc_ref_string = "[locate(rsc_ref_ref)]"
+
+		icon_path = rsc_ref_string
+
+	if(is_valid_dmi_file(icon_path))
+		return icon_path
+
+	return FALSE
+
+/// Asks the user for an icon (either from file or as a path) and offers to customize it if possible (e.g. setting icon_state)
+/proc/pick_and_customize_icon(mob/user, pick_only=FALSE)
+	var/icon/icon_result = null
+	if(!user)
+		user = usr
+
+	var/icon_from_file = tgui_alert(user, "Do you wish to pick an icon from file?", "File picker icon", list("Yes", "No"))
+	if(isnull(icon_from_file))
+		return null
+	if(icon_from_file == "Yes")
+		icon_result = input(user, "Pick icon:", "Icon") as null|icon
+		if(!icon_result)
+			return null
+	else if(icon_from_file == "No")
+		var/new_icon = tgui_input_text(user, "Pick icon path", "icon path")
+		if(isnull(new_icon))
+			return null
+		var/regex/regex = regex(@"^.+icons/")
+		new_icon = regex.Replace(replacetext(new_icon, @"\", "/"), "icons/")
+		icon_result = fcopy_rsc(new_icon)
+		if(!icon_result)
+			to_chat(user, SPAN_WARNING("'[new_icon]' is an invalid icon path!"))
+			return null
+
+	var/dmi_path = get_icon_dmi_path(icon_result)
+	if(!dmi_path || pick_only)
+		return icon_result
+
+	var/custom = tgui_alert(user, "Do you wish to specify any arguments for the icon?", "Customize Icon", list("Yes", "No"))
+	if(isnull(custom))
+		return null
+	if(custom == "Yes")
+		var/new_icon_state = tgui_input_text(user, "Pick icon_state", "icon_state")
+		if(isnull(new_icon_state))
+			return null
+		var/new_icon_dir = tgui_input_list(user, "Pick icon dir", "dir", list("North", "East", "South", "West"), default="South")
+		if(isnull(new_icon_dir))
+			return null
+		var/new_icon_frame = tgui_input_number(user, "Pick icon frame", "frame", min_value=0, integer_only=TRUE)
+		if(isnull(new_icon_frame))
+			return null
+		var/new_icon_moving = tgui_input_list(user, "Pick icon moving", "moving", list("Both", "Movement only", "Non-Movement Only"), default="Both")
+		switch(new_icon_moving)
+			if("Both")
+				new_icon_moving = null
+			if("Movement only")
+				new_icon_moving = 1
+			if("Non-Movement Only")
+				new_icon_moving = 0
+			else
+				return null
+		icon_result = new(dmi_path, new_icon_state, text2dir(new_icon_dir), new_icon_frame, new_icon_moving)
+
+	return icon_result
+
+/**
+ * generate an asset for the given icon or the icon of the given appearance for [thing], and send it to any clients in target.
+ * Arguments:
+ * * thing - either a /icon object, or an object that has an appearance (atom, image, mutable_appearance).
+ * * target - either a reference to or a list of references to /client's or mobs with clients
+ * * icon_state - string to force a particular icon_state for the icon to be used
+ * * dir - dir number to force a particular direction for the icon to be used
+ * * frame - what frame of the icon_state's animation for the icon being used
+ * * moving - whether or not to use a moving state for the given icon
+ * * sourceonly - if TRUE, only generate the asset and send back the asset url, instead of tags that display the icon to players
+ * * extra_classes - string of extra css classes to use when returning the icon string
+ * * keyonly - if TRUE, only returns the asset key to use get_asset_url manually. Overrides sourceonly.
+ */
+/proc/icon2html(atom/thing, client/target, icon_state, dir = SOUTH, frame = 1, moving = FALSE, sourceonly = FALSE, extra_classes = null, keyonly = FALSE, non_standard_size = FALSE)
 	if (!thing)
 		return
 
 	var/key
-	var/icon/I = thing
+	var/icon/icon2collapse = thing
 
 	if (!target)
 		return
@@ -628,46 +707,76 @@ world
 		targets = list(target)
 	else
 		targets = target
-		if (!targets.len)
-			return
-	if (!isicon(I))
+	if(!length(targets))
+		return
+
+	//check if the given object is associated with a dmi file in the icons folder. if it is then we don't need to do a lot of work
+	//for asset generation to get around byond limitations
+	var/icon_path = get_icon_dmi_path(thing)
+
+	if (!isicon(icon2collapse))
 		if (isfile(thing)) //special snowflake
-			var/name = sanitize_filename("[generate_asset_name(thing)].png")
+			var/name = SANITIZE_FILENAME("[generate_asset_name(thing)].png")
 			if (!SSassets.cache[name])
 				SSassets.transport.register_asset(name, thing)
 			for (var/thing2 in targets)
 				SSassets.transport.send_assets(thing2, name)
+			if(keyonly)
+				return name
 			if(sourceonly)
 				return SSassets.transport.get_asset_url(name)
-			return "<img class='icon icon-misc' src='[SSassets.transport.get_asset_url(name)]'>"
-		var/atom/A = thing
+			return "<img class='[extra_classes] icon icon-misc' src='[SSassets.transport.get_asset_url(name)]'>"
 
-		I = A.icon
+		//its either an atom, image, or mutable_appearance, we want its icon var
+		icon2collapse = thing.icon
+
 		if (isnull(icon_state))
-			icon_state = A.icon_state
-			if (!icon_state)
-				icon_state = initial(A.icon_state)
+			icon_state = thing.icon_state
+			//Despite casting to atom, this code path supports mutable appearances, so let's be nice to them
+			if(isnull(icon_state) || (isatom(thing) && thing.flags_atom & HTML_USE_INITIAL_ICON))
+				icon_state = initial(thing.icon_state)
 				if (isnull(dir))
-					dir = initial(A.dir)
+					dir = initial(thing.dir)
 
 		if (isnull(dir))
-			dir = A.dir
+			dir = thing.dir
+
+		// Commented out because this is seemingly our source of bad icon operations
+		/* if (ishuman(thing)) // Shitty workaround for a BYOND issue.
+			var/icon/temp = icon2collapse
+			icon2collapse = icon()
+			icon2collapse.Insert(temp, dir = SOUTH)
+			dir = SOUTH*/
 	else
 		if (isnull(dir))
 			dir = SOUTH
 		if (isnull(icon_state))
 			icon_state = ""
 
-	I = icon(I, icon_state, dir, frame, moving)
+	icon2collapse = icon(icon2collapse, icon_state, dir, frame, moving)
 
-	key = "[generate_asset_name(I)].png"
+	if(!non_standard_size)
+		var/width = icon2collapse.Width()
+		var/height = icon2collapse.Height()
+		if(width != height)
+			var/new_dimension = min(width, height)
+			center_icon(icon2collapse, new_dimension, new_dimension)
+
+	var/list/name_and_ref = generate_and_hash_rsc_file(icon2collapse, icon_path)//pretend that tuples exist
+
+	var/rsc_ref = name_and_ref[1] //weird object thats not even readable to the debugger, represents a reference to the icons rsc entry
+	var/file_hash = name_and_ref[2]
+	key = "[name_and_ref[3]].png"
+
 	if(!SSassets.cache[key])
-		SSassets.transport.register_asset(key, I)
-	for (var/thing2 in targets)
-		SSassets.transport.send_assets(thing2, key)
+		SSassets.transport.register_asset(key, rsc_ref, file_hash, icon_path)
+	for (var/client_target in targets)
+		SSassets.transport.send_assets(client_target, key)
+	if(keyonly)
+		return key
 	if(sourceonly)
 		return SSassets.transport.get_asset_url(key)
-	return "<img class='icon icon-[icon_state]' src='[SSassets.transport.get_asset_url(key)]'>"
+	return "<img class='[extra_classes] icon icon-[icon_state]' src='[SSassets.transport.get_asset_url(key)]'>"
 
 //Costlier version of icon2html() that uses getFlatIcon() to account for overlays, underlays, etc. Use with extreme moderation, ESPECIALLY on mobs.
 /proc/costly_icon2html(thing, target, sourceonly = FALSE)
@@ -720,22 +829,7 @@ world
 		return TRUE
 
 /proc/BlendRGB(rgb1, rgb2, amount)
-	var/list/RGB1 = ReadRGB(rgb1)
-	var/list/RGB2 = ReadRGB(rgb2)
-
-	// add missing alpha if needed
-	if(length(RGB1) < length(RGB2))
-		RGB1 += 255
-	else if(length(RGB2) < length(RGB1))
-		RGB2 += 255
-	var/usealpha = length(RGB1) > 3
-
-	var/r = round(RGB1[1] + (RGB2[1] - RGB1[1]) * amount, 1)
-	var/g = round(RGB1[2] + (RGB2[2] - RGB1[2]) * amount, 1)
-	var/b = round(RGB1[3] + (RGB2[3] - RGB1[3]) * amount, 1)
-	var/alpha = usealpha ? round(RGB1[4] + (RGB2[4] - RGB1[4]) * amount, 1) : null
-
-	return isnull(alpha) ? rgb(r, g, b) : rgb(r, g, b, alpha)
+	return rgb_gradient(amount, 0, rgb1, 1, rgb2, "loop")
 
 /proc/icon2base64(icon/icon)
 	if(!isicon(icon))
@@ -785,23 +879,139 @@ world
 
 	return image_to_center
 
+/**
+ * Centers an icon.
+ *
+ * Arguments:
+ * * icon - The icon to center
+ * * final_width - The width to crop to. Will use Width() if <= 0
+ * * final_height - The height to crop to. Will use Height() if <= 0
+ */
+/proc/center_icon(icon/icon, final_width, final_height)
+	var/width = icon.Width() || world.icon_size
+	var/height = icon.Height() || world.icon_size
+
+	if(final_width <= 0)
+		final_width = width
+	if(final_height <= 0)
+		final_height = height
+
+	var/left = INFINITY
+	var/right = 0
+	var/bottom = INFINITY
+	var/top = 0
+
+	// Find the inner dimensions (non-alpha pixels)
+	for(var/x in 1 to width)
+		for(var/y in 1 to height)
+			if(icon.GetPixel(x, y))
+				left = min(x, left)
+				right = max(x, right)
+				bottom = min(y, bottom)
+				top = max(y, top)
+
+	if(!right)
+		// Fully transparent
+		icon.Crop(1, 1, final_width, final_height)
+		return icon
+
+	var/inner_width = right - left
+	var/inner_height = top - bottom
+	var/left_padding = left - floor((final_width - inner_width) * 0.5)
+	var/bottom_padding = bottom - floor((final_height - inner_height) * 0.5)
+
+	icon.Crop(left_padding, bottom_padding, left_padding + final_width - 1, bottom_padding + final_height - 1)
+	return icon
+
 //For creating consistent icons for human looking simple animals
-/proc/get_flat_human_icon(icon_id, datum/equipment_preset/preset, datum/preferences/prefs, dummy_key, showDirs = GLOB.cardinals, outfit_override)
+/proc/get_flat_human_icon(icon_id, equipment_preset_dresscode, datum/preferences/prefs, dummy_key, showDirs = GLOB.cardinals, outfit_override)
 	var/static/list/humanoid_icon_cache = list()
 	if(!icon_id || !humanoid_icon_cache[icon_id])
 		var/mob/living/carbon/human/dummy/body = generate_or_wait_for_human_dummy(dummy_key)
+
 		if(prefs)
 			prefs.copy_all_to(body)
-		arm_equipment(body, preset)
+			body.update_body()
+			body.update_hair()
+
+		// Assumption: Is a list
+		if(outfit_override)
+			for(var/obj/item/cur_item as anything in outfit_override)
+				body.equip_to_appropriate_slot(cur_item)
+
+		// Assumption: Is a string or path
+		if(equipment_preset_dresscode)
+			arm_equipment(body, equipment_preset_dresscode)
 
 		var/icon/out_icon = icon('icons/effects/effects.dmi', "nothing")
-		for(var/D in showDirs)
-			body.setDir(D)
+		for(var/dir in showDirs)
+			body.setDir(dir)
 			var/icon/partial = getFlatIcon(body)
-			out_icon.Insert(partial, dir = D)
+			out_icon.Insert(partial, dir = dir)
 
 		humanoid_icon_cache[icon_id] = out_icon
 		dummy_key ? unset_busy_human_dummy(dummy_key) : qdel(body)
 		return out_icon
 	else
 		return humanoid_icon_cache[icon_id]
+
+/proc/get_flat_human_copy_icon(mob/living/carbon/human/original, equipment_preset_dresscode, showDirs = GLOB.cardinals, outfit_override)
+	var/mob/living/carbon/human/dummy/body = generate_or_wait_for_human_dummy(null)
+
+	if(original)
+		// From /datum/preferences/proc/copy_appearance_to
+		body.age = original.age
+		body.gender = original.gender
+		body.skin_color = original.skin_color
+		body.body_type = original.body_type
+		body.body_size = original.body_size
+
+		body.r_eyes = original.r_eyes
+		body.g_eyes = original.g_eyes
+		body.b_eyes = original.b_eyes
+
+		body.r_hair = original.r_hair
+		body.g_hair = original.g_hair
+		body.b_hair = original.b_hair
+
+		body.r_gradient = original.r_gradient
+		body.g_gradient = original.g_gradient
+		body.b_gradient = original.b_gradient
+		body.grad_style = original.grad_style
+
+		body.r_facial = original.r_facial
+		body.g_facial = original.g_facial
+		body.b_facial = original.b_facial
+
+		body.r_skin = original.r_skin
+		body.g_skin = original.g_skin
+		body.b_skin = original.b_skin
+
+		body.h_style = original.h_style
+		body.f_style = original.f_style
+
+		body.underwear = original.underwear
+		body.undershirt = original.undershirt
+
+		body.update_body()
+		body.update_hair()
+
+	// Assumption: Is a list
+	if(outfit_override)
+		for(var/obj/item/cur_item as anything in outfit_override)
+			body.equip_to_appropriate_slot(cur_item)
+
+	// Assumption: Is a string or path
+	if(equipment_preset_dresscode)
+		arm_equipment(body, equipment_preset_dresscode)
+
+	var/icon/out_icon = icon('icons/effects/effects.dmi', "nothing")
+	for(var/dir in showDirs)
+		body.setDir(dir)
+		var/icon/partial = getFlatIcon(body)
+		out_icon.Insert(partial, dir = dir)
+
+	// log_debug("get_flat_human_copy_icon called on ref=[REF(original)], instance=[original], type=[original.type], with [length(original.overlays)] overlays reduced to [length(body.overlays)] overlays")
+
+	qdel(body)
+	return out_icon

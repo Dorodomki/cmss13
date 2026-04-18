@@ -1,3 +1,5 @@
+#define MAXIMUM_STACK_DEPTH 10
+
 /*
 	Custom runtime handling
 */
@@ -11,7 +13,6 @@
 GLOBAL_REAL(stui_init_runtimes, /list) //! Shorthand of Static Initializer errors only, for use in STUI
 GLOBAL_REAL(full_init_runtimes, /list) //! Full text of all Static Initializer + World Init errors, for log backfilling
 GLOBAL_REAL_VAR(runtime_logging_ready) //! Truthy when init is done and we don't need these shenanigans anymore
-GLOBAL_REAL_VAR(init_runtimes_count) //! Count of runtimes that occured before logging is ready, for in-game reporting
 
 // Deduplication of errors via hash to reduce spamming
 GLOBAL_REAL(runtime_hashes, /list)
@@ -24,16 +25,13 @@ GLOBAL_REAL_VAR(total_runtimes)
 	if(!total_runtimes)
 		total_runtimes = 0
 	total_runtimes += 1
-	if(!init_runtimes_count)
-		init_runtimes_count = 0
 	if(!stui_init_runtimes)
 		stui_init_runtimes = list()
 	if(!full_init_runtimes)
 		full_init_runtimes = list()
 
-	// If this occured during early init, we store the full error to write it to world.log when it's available
+	// If this occurred during early init, we store the full error to write it to world.log when it's available
 	if(!runtime_logging_ready)
-		init_runtimes_count += 1
 		full_init_runtimes += E.desc
 
 	// Runtime was already reported once, dedup it for STUI
@@ -51,6 +49,25 @@ GLOBAL_REAL_VAR(total_runtimes)
 		return
 	runtime_hashes[hash] = 1
 
+	if(SSsentry?.can_fire)
+		var/depth = 1
+		var/list/datum/static_callee/error_callees = list()
+
+		try
+			for(var/callee/called = caller, called, called = called.caller)
+				error_callees += clone_callee(called)
+				depth++
+
+				if(depth > MAXIMUM_STACK_DEPTH)
+					break
+			reverse_range(error_callees)
+
+			SSsentry.envelopes += new /datum/error_envelope(
+				E.name,
+				error_callees,
+			)
+		catch
+
 	// Single error logging to STUI
 	var/text = "\[[time_stamp()]]RUNTIME: [E.name] - [E.file]@[E.line]"
 	if(GLOB?.STUI?.runtime)
@@ -60,3 +77,34 @@ GLOBAL_REAL_VAR(total_runtimes)
 		stui_init_runtimes.Add(text)
 
 	log_runtime("runtime error: [E.name]\n[E.desc]")
+
+/datum/static_callee
+	var/list/_args
+	var/file
+	var/line
+	var/proc
+	var/_src
+	var/_usr
+	var/name
+
+/datum/static_callee/New(list/_args, file, line, proc, _src, _usr, name)
+	src._args = _args.Copy()
+	src.file = file
+	src.line = line
+	src.proc = proc
+	src._src = _src // sigh
+	src._usr = _usr
+	src.name = name
+
+/proc/clone_callee(callee/to_clone) as /datum/static_callee
+	return new /datum/static_callee(
+		to_clone.args,
+		to_clone.file,
+		to_clone.line,
+		to_clone.proc,
+		to_clone.src,
+		to_clone.usr,
+		to_clone.name,
+	)
+
+#undef MAXIMUM_STACK_DEPTH

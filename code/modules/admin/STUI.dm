@@ -40,7 +40,7 @@ GLOBAL_DATUM_INIT(STUI, /datum/STUI, new)
 
 /datum/STUI/New()
 	. = ..()
-	if(length(stui_init_runtimes)) // Report existing errors that might have occured during static initializers
+	if(length(stui_init_runtimes)) // Report existing errors that might have occurred during static initializers
 		runtime = stui_init_runtimes.Copy()
 
 /datum/STUI/Topic(href, href_list)
@@ -68,49 +68,51 @@ GLOBAL_DATUM_INIT(STUI, /datum/STUI, new)
 /datum/STUI/ui_static_data(mob/user)
 	. = list()
 	.["tabs"] = list()
-	if(user.client.admin_holder.rights & R_MOD)
-		.["tabs"] += STUI_TEXT_ATTACK
-		.["tabs"] += STUI_TEXT_STAFF
-		.["tabs"] += STUI_TEXT_STAFF_CHAT
-		.["tabs"] += STUI_TEXT_OOC
-	if((user.client.admin_holder.rights & R_MOD) || (user.client.admin_holder.rights & R_DEBUG))
-		.["tabs"] += STUI_TEXT_GAME
-	if(user.client.admin_holder.rights & R_DEBUG)
-		.["tabs"] += STUI_TEXT_DEBUG
-		.["tabs"] += STUI_TEXT_RUNTIME
-		.["tabs"] += STUI_TEXT_TGUI
+
+	if(!check_other_rights(user.client, R_MOD|R_DEBUG, FALSE))
+		return .
+
+	.["tabs"] += STUI_TEXT_ATTACK
+	.["tabs"] += STUI_TEXT_STAFF
+	.["tabs"] += STUI_TEXT_STAFF_CHAT
+	.["tabs"] += STUI_TEXT_OOC
+	.["tabs"] += STUI_TEXT_GAME
+	.["tabs"] += STUI_TEXT_DEBUG
+	.["tabs"] += STUI_TEXT_RUNTIME
+	.["tabs"] += STUI_TEXT_TGUI
 
 /datum/STUI/ui_data(mob/user)
 	var/stui_length = CONFIG_GET(number/STUI_length)
 	. = list()
 	.["logs"] = list()
-	if(user.client.admin_holder.rights & R_MOD)
-		if(attack.len > stui_length+1)
-			attack.Cut(,attack.len-stui_length)
-		.["logs"][STUI_TEXT_ATTACK] = attack
-		if(admin.len > stui_length+1)
-			admin.Cut(,admin.len-stui_length)
-		.["logs"][STUI_TEXT_STAFF] = admin
-		if(staff.len > stui_length+1)
-			staff.Cut(,staff.len-stui_length)
-		.["logs"][STUI_TEXT_STAFF_CHAT] = staff
-		if(ooc.len > stui_length+1)
-			ooc.Cut(,ooc.len-stui_length)
-		.["logs"][STUI_TEXT_OOC] = ooc
-	if((user.client.admin_holder.rights & R_MOD) || (user.client.admin_holder.rights & R_DEBUG))
-		if(game.len > stui_length+1)
-			game.Cut(,game.len-stui_length)
-		.["logs"][STUI_TEXT_GAME] = game
-	if(user.client.admin_holder.rights & R_DEBUG)
-		if(debug.len > stui_length+1)
-			debug.Cut(,debug.len-stui_length)
-		.["logs"][STUI_TEXT_DEBUG] = debug
-		if(runtime.len > stui_length+1)
-			runtime.Cut(,runtime.len-stui_length)
-		.["logs"][STUI_TEXT_RUNTIME] = runtime
-		if(tgui.len > stui_length+1)
-			tgui.Cut(,tgui.len-stui_length)
-		.["logs"][STUI_TEXT_TGUI] = tgui
+
+	if(!check_other_rights(user.client, R_MOD|R_DEBUG, FALSE))
+		return .
+
+	if(length(attack) > stui_length+1)
+		attack.Cut(,length(attack)-stui_length)
+	.["logs"][STUI_TEXT_ATTACK] = attack
+	if(length(admin) > stui_length+1)
+		admin.Cut(,length(admin)-stui_length)
+	.["logs"][STUI_TEXT_STAFF] = admin
+	if(length(staff) > stui_length+1)
+		staff.Cut(,length(staff)-stui_length)
+	.["logs"][STUI_TEXT_STAFF_CHAT] = staff
+	if(length(ooc) > stui_length+1)
+		ooc.Cut(,length(ooc)-stui_length)
+	.["logs"][STUI_TEXT_OOC] = ooc
+	if(length(game) > stui_length+1)
+		game.Cut(,length(game)-stui_length)
+	.["logs"][STUI_TEXT_GAME] = game
+	if(length(debug) > stui_length+1)
+		debug.Cut(,length(debug)-stui_length)
+	.["logs"][STUI_TEXT_DEBUG] = debug
+	if(length(runtime) > stui_length+1)
+		runtime.Cut(,length(runtime)-stui_length)
+	.["logs"][STUI_TEXT_RUNTIME] = runtime
+	if(length(tgui) > stui_length+1)
+		tgui.Cut(,length(tgui)-stui_length)
+	.["logs"][STUI_TEXT_TGUI] = tgui
 
 /client/proc/open_STUI()
 	set name = "S: Open STUI"

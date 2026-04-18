@@ -41,19 +41,21 @@ GLOBAL_DATUM_INIT(revdata, /datum/getrev, new)
 	return msg.Join("\n")
 
 /datum/getrev/proc/GetTestMergeInfo(header = TRUE)
-	if(!testmerge.len)
+	if(!length(testmerge))
 		return ""
 	. = header ? "The following pull requests are currently test merged:<br>" : ""
 	for(var/line in testmerge)
 		var/datum/tgs_revision_information/test_merge/tm = line
 		var/cm = tm.head_commit
 		var/details = ": '" + html_encode(tm.title) + "' by " + html_encode(tm.author) + " at commit " + html_encode(copytext_char(cm, 1, 11))
+		if(details && findtext(details, "\[s\]") && (!usr || !usr.client.admin_holder))
+			continue
 		. += "<a href=\"[CONFIG_GET(string/githuburl)]/pull/[tm.number]\">#[tm.number][details]</a><br>"
 
-/client/verb/showrevinfo()
+CLIENT_VERB(showrevinfo)
 	set category = "OOC"
 	set name = "Show Server Revision"
-	set desc = "Check the current server code revision"
+	set desc = "Check the current server code revision."
 
 	var/list/msg = list("")
 	// Round ID
@@ -68,7 +70,7 @@ GLOBAL_DATUM_INIT(revdata, /datum/getrev, new)
 	var/pc = revdata.originmastercommit
 	if(pc)
 		msg += "Master commit: <a href=\"[CONFIG_GET(string/githuburl)]/commit/[pc]\">[pc]</a>"
-	if(revdata.testmerge.len)
+	if(length(revdata.testmerge))
 		msg += revdata.GetTestMergeInfo()
 	if(revdata.commit && revdata.commit != revdata.originmastercommit)
 		msg += "Local commit: [revdata.commit]"
@@ -79,6 +81,10 @@ GLOBAL_DATUM_INIT(revdata, /datum/getrev, new)
 		msg += "TGS version: [version.raw_parameter]"
 		var/datum/tgs_version/api_version = world.TgsApiVersion()
 		msg += "DMAPI version: [api_version.raw_parameter]"
+
+	var/code_modification = CONFIG_GET(string/code_modifications_message)
+	if(code_modification)
+		msg += code_modification
 
 	// Game mode odds
 	to_chat(src, SPAN_INFO(msg.Join("<br>")))

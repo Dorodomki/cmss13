@@ -2,18 +2,11 @@
 	ERT Shuttles
 */
 
-#define ERT_SHUTTLE_DEFAULT_RECHARGE 90 SECONDS
-
-#define ADMIN_LANDING_PAD_1 "base-ert1"
-#define ADMIN_LANDING_PAD_2 "base-ert2"
-#define ADMIN_LANDING_PAD_3 "base-ert3"
-#define ADMIN_LANDING_PAD_4 "base-ert4"
-#define ADMIN_LANDING_PAD_5 "base-ert5"
-
 // Base ERT Shuttle
 /obj/docking_port/mobile/emergency_response
 	name = "ERT Shuttle"
 	ignitionTime = DROPSHIP_WARMUP_TIME
+	prearrivalTime = DROPSHIP_WARMUP_TIME
 	area_type = /area/shuttle/ert
 	width = 7
 	height = 13
@@ -21,6 +14,8 @@
 	rechargeTime = ERT_SHUTTLE_DEFAULT_RECHARGE // 90s cooldown to recharge
 	var/list/doors = list()
 	var/list/external_doors = list()
+	var/datum/emergency_call/distress_beacon
+	var/list/local_landmarks = list()
 
 /obj/docking_port/mobile/emergency_response/Initialize(mapload)
 	. = ..(mapload)
@@ -29,12 +24,35 @@
 			doors += list(air)
 			external_doors += list(air)
 			air.breakable = FALSE
-			air.indestructible = TRUE
+			air.explo_proof = TRUE
 			air.unacidable = TRUE
+	RegisterSignal(src, COMSIG_ATOM_DIR_CHANGE, PROC_REF(on_dir_change))
 
 /obj/docking_port/mobile/emergency_response/enterTransit()
 	control_doors("force-lock-launch", force = TRUE, external_only = TRUE)
+	UnregisterSignal(src, COMSIG_ATOM_DIR_CHANGE)
 	..()
+
+/obj/docking_port/mobile/emergency_response/register()
+	. = ..()
+
+	for(var/turf/current_turf as anything in return_turfs())
+		for(var/obj/effect/landmark/landmark in current_turf.GetAllContents())
+			LAZYADD(local_landmarks[landmark.type], landmark)
+
+/obj/docking_port/mobile/emergency_response/initiate_docking(obj/docking_port/stationary/new_dock, movement_direction, force)
+	. = ..()
+	if(. != DOCKING_SUCCESS)
+		return
+
+	if(!is_mainship_level(z))
+		return
+
+	if(!distress_beacon || !distress_beacon.home_base)
+		return
+
+	var/obj/structure/machinery/computer/shuttle/ert/console = getControlConsole()
+	console.must_launch_home = TRUE
 
 /obj/docking_port/mobile/emergency_response/proc/control_doors(action, force = FALSE, external_only = FALSE)
 	var/list/door_list = doors
@@ -61,14 +79,13 @@
 				INVOKE_ASYNC(src, PROC_REF(lockdown_door_launch), door)
 
 /obj/docking_port/mobile/emergency_response/proc/lockdown_door_launch(obj/structure/machinery/door/airlock/air)
-	for(var/mob/blocking_mob in air.loc) // Bump all mobs outta the way for outside airlocks of shuttles
-		if(isliving(blocking_mob))
-			to_chat(blocking_mob, SPAN_HIGHDANGER("You get thrown back as the dropship doors slam shut!"))
-			blocking_mob.apply_effect(4, WEAKEN)
-			for(var/turf/target_turf in orange(1, air)) // Forcemove to a non shuttle turf
-				if(!istype(target_turf, /turf/open/shuttle) && !istype(target_turf, /turf/closed/shuttle))
-					blocking_mob.forceMove(target_turf)
-					break
+	for(var/mob/living/blocking_mob in air.loc) // Bump all mobs outta the way for outside airlocks of shuttles
+		to_chat(blocking_mob, SPAN_HIGHDANGER("You get thrown back as the dropship doors slam shut!"))
+		blocking_mob.KnockDown(4)
+		for(var/turf/target_turf in orange(1, air)) // Forcemove to a non shuttle turf
+			if(!istype(target_turf, /turf/open/shuttle) && !istype(target_turf, /turf/closed/shuttle))
+				blocking_mob.forceMove(target_turf)
+				break
 	lockdown_door(air)
 
 /obj/docking_port/mobile/emergency_response/proc/lockdown_door(obj/structure/machinery/door/airlock/air)
@@ -78,10 +95,10 @@
 	air.lock()
 	air.safe = 1
 
-/obj/docking_port/mobile/emergency_response/setDir(newdir)
-	. = ..()
+/obj/docking_port/mobile/emergency_response/proc/on_dir_change(datum/source, old_dir, new_dir)
+	SIGNAL_HANDLER
 	for(var/obj/structure/machinery/door/shuttle_door in doors)
-		shuttle_door.handle_multidoor()
+		shuttle_door.handle_multidoor(old_dir, new_dir)
 
 // ERT Shuttle 1
 /obj/docking_port/mobile/emergency_response/ert1
@@ -105,6 +122,45 @@
 	port_direction = NORTH
 
 // ERT Shuttle 4
+
+/obj/docking_port/mobile/emergency_response/ert4
+	name = "TWE Shuttle"
+	id = MOBILE_SHUTTLE_ID_ERT4
+	preferred_direction = SOUTH
+	port_direction = NORTH
+
+// ERT Shuttle 5
+
+/obj/docking_port/mobile/emergency_response/ert5
+	name = "Military Caste Shuttle"
+	id = MOBILE_SHUTTLE_ID_ERT5
+	preferred_direction = SOUTH
+	port_direction = NORTH
+
+/obj/docking_port/mobile/emergency_response/hunter
+	name = "Hunter Shuttle"
+	id = MOBILE_SHUTTLE_ID_HUNTER
+	preferred_direction = SOUTH
+	port_direction = NORTH
+	area_type = /area/shuttle/hunter
+	landing_sound = 'sound/effects/engine_hunter_landing.ogg'
+	ignition_sound = 'sound/effects/engine_hunter_startup.ogg'
+
+/obj/docking_port/mobile/emergency_response/hunter/Initialize(mapload)
+	var/tag = "[pick(GLOB.nato_phonetic_alphabet)]-[rand(1, 99)]"
+	name = "Hunter Shuttle [tag]"
+	id = "hunter-shuttle-[tag]"
+	. = ..()
+	external_doors = list()
+	for(var/place in shuttle_areas)
+		for(var/obj/structure/machinery/door/airlock/air in place)
+			if(air.id != "hunter_external")
+				continue
+			air.breakable = FALSE
+			air.explo_proof = TRUE
+			air.unacidable = TRUE
+			external_doors += list(air)
+
 /obj/docking_port/mobile/emergency_response/small
 	name = "Rescue Shuttle"
 	id = MOBILE_SHUTTLE_ID_ERT_SMALL
@@ -124,13 +180,13 @@
 				starboard_door = air
 				external_doors += list(air)
 				air.breakable = FALSE
-				air.indestructible = TRUE
+				air.explo_proof = TRUE
 				air.unacidable = TRUE
 			else if(air.id == "port_door")
 				port_door = air
 				external_doors += list(air)
 				air.breakable = FALSE
-				air.indestructible = TRUE
+				air.explo_proof = TRUE
 				air.unacidable = TRUE
 	if(!port_door)
 		WARNING("No port door found for [src]")
@@ -145,6 +201,7 @@
 	port_direction = NORTH
 	width = 17
 	height = 29
+	dwidth = 8
 	var/port_door
 	var/starboard_door
 
@@ -155,13 +212,13 @@
 		for(var/obj/structure/machinery/door/air in place)
 			if(air.id == "starboard_door")
 				air.breakable = FALSE
-				air.indestructible = TRUE
+				air.explo_proof = TRUE
 				air.unacidable = TRUE
 				external_doors += list(air)
 				starboard_door = air
 			else if(air.id == "port_door")
 				air.breakable = FALSE
-				air.indestructible = TRUE
+				air.explo_proof = TRUE
 				air.unacidable = TRUE
 				external_doors += list(air)
 				port_door = air
@@ -175,12 +232,19 @@
 	width  = 7
 	height = 13
 	var/is_external = FALSE
+	var/lockdown_on_land = FALSE
 
 /obj/docking_port/stationary/emergency_response/on_arrival(obj/docking_port/mobile/arriving_shuttle)
 	. = ..()
 	if(istype(arriving_shuttle, /obj/docking_port/mobile/emergency_response))
 		var/obj/docking_port/mobile/emergency_response/ert = arriving_shuttle
 		ert.control_doors("unlock", force = FALSE)
+
+	if(lockdown_on_land)
+		var/obj/structure/machinery/computer/shuttle/ert/console = arriving_shuttle.getControlConsole()
+		console.disable()
+		console.mission_accomplished = TRUE
+		lockdown_on_land = FALSE
 
 /obj/docking_port/stationary/emergency_response/port1
 	name = "Almayer starboard landing pad"
@@ -197,6 +261,41 @@
 	name = "Almayer stern landing pad"
 	dir = NORTH
 	id = "almayer-ert3"
+
+/obj/docking_port/stationary/emergency_response/port1_upp
+	name = "Rostock starboard landing pad"
+	dir = NORTH
+	id = "rostock-ert1"
+
+/obj/docking_port/stationary/emergency_response/port2_upp
+	name = "Rostock port landing pad"
+	dir = NORTH
+	id = "rostock-ert2"
+
+/obj/docking_port/stationary/emergency_response/yautja
+	name = "DO NOT USE"
+	dir = NORTH
+
+/obj/docking_port/stationary/emergency_response/yautja/port1
+	name = "Hunter Ship landing pad A"
+	id = "hunter-ert1"
+	roundstart_template = /datum/map_template/shuttle/hunter
+
+/obj/docking_port/stationary/emergency_response/yautja/port2
+	name = "Hunter Ship landing pad B"
+	id = "hunter-ert2"
+
+/obj/docking_port/stationary/emergency_response/yautja/temporary
+	name = "Temporary Landing Zone"
+
+/obj/docking_port/stationary/emergency_response/yautja/temporary/Initialize(mapload)
+	var/tag = "[pick(GLOB.nato_phonetic_alphabet)]-[rand(1, 99)]"
+	name = "Temporary Landing Zone [tag]"
+	id = "hunter-temp-[tag]"
+	. = ..()
+	for(var/obj/docking_port/mobile/emergency_response/hunter/shuttle in SSshuttle.mobile)
+		var/obj/structure/machinery/computer/shuttle/ert/hunter/console = shuttle.getControlConsole()
+		console.resync_landing_zones()
 
 /obj/docking_port/stationary/emergency_response/external
 	is_external = TRUE
@@ -244,19 +343,32 @@
 	name = "Almayer hanger port external airlock"
 	dir = EAST
 	id = "almayer-ert-hangar-port"
-	width  = 17
-	height = 29
+	width   = 17
+	height  = 43
+	dheight = 21
+	dwidth  = 0
 	airlock_id = "s_umbilical"
-	airlock_area = /area/almayer/hallways/port_umbilical
+	airlock_area = /area/almayer/hallways/lower/port_umbilical
 
 /obj/docking_port/stationary/emergency_response/external/hangar_starboard
 	name = "Almayer hanger starboard external airlock"
 	dir = EAST
 	id = "almayer-ert-hangar-starboard"
+	width   = 6
+	height  = 25
+	dheight = 12
+	dwidth  = 0
+	airlock_id = "n_umbilical"
+	airlock_area = /area/almayer/hallways/lower/starboard_umbilical
+
+/obj/docking_port/stationary/emergency_response/external/hangar_port_upp
+	name = "Rostock hanger port external airlock"
+	dir = EAST
+	id = "rostock-ert-hangar-port"
 	width  = 17
 	height = 29
-	airlock_id = "n_umbilical"
-	airlock_area = /area/almayer/hallways/starboard_umbilical
+	airlock_id = "rostock_umbilical"
+	airlock_area = /area/rostock/lower_deck/starboard_umbilical
 
 // These are docking ports not on the almayer
 /obj/docking_port/stationary/emergency_response/idle_port1
@@ -289,26 +401,83 @@
 	name = "Response Station Landing Pad 5"
 	dir = EAST
 	id = ADMIN_LANDING_PAD_5
+	width   = 17
+	height  = 43
+	dheight = 21
+	dwidth  = 0
+	roundstart_template = /datum/map_template/shuttle/big_ert
+
+/obj/docking_port/stationary/emergency_response/idle_port6
+	name = "Response Station Landing Pad 6"
+	dir = NORTH
+	id = ADMIN_LANDING_PAD_5
+	roundstart_template = /datum/map_template/shuttle/twe_ert
+
+/obj/docking_port/stationary/emergency_response/idle_port7
+	name = "Response Station Landing Pad 7"
+	dir = NORTH
+	id = ADMIN_LANDING_PAD_5
 	width  = 17
 	height = 29
-	roundstart_template = /datum/map_template/shuttle/big_ert
+	roundstart_template = /datum/map_template/shuttle/mcaste_ert
+
+/obj/docking_port/stationary/emergency_response/chinook_port
+	name = "Chinook Station Landing Pad 1"
+	dir = NORTH
+	id = ADMIN_LANDING_PAD_6
+	roundstart_template = /datum/map_template/shuttle/response_ert
 
 /datum/map_template/shuttle/response_ert
 	name = "Response Shuttle"
-	shuttle_id = "ert_response_shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT1
 
 /datum/map_template/shuttle/pmc_ert
 	name = "PMC Shuttle"
-	shuttle_id = "ert_pmc_shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT2
 
 /datum/map_template/shuttle/upp_ert
 	name = "UPP Shuttle"
-	shuttle_id = "ert_upp_shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT3
+
+/datum/map_template/shuttle/twe_ert
+	name = "TWE Shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT4
+
+/datum/map_template/shuttle/mcaste_ert
+	name = "Military Caste Shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT5
 
 /datum/map_template/shuttle/small_ert
 	name = "Rescue Shuttle"
-	shuttle_id = "ert_small_shuttle_north"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT_SMALL
 
 /datum/map_template/shuttle/big_ert
 	name = "Boarding Shuttle"
-	shuttle_id = "ert_shuttle_big"
+	shuttle_id = MOBILE_SHUTTLE_ID_ERT_BIG
+
+/datum/map_template/shuttle/port_umbilical_cord
+	name = "Port Umbilical Cord"
+	shuttle_id = /obj/docking_port/mobile/port_umbilical_cord::id
+
+/datum/map_template/shuttle/starboard_umbilical_cord
+	name = "Starboard Umbilical Cord"
+	shuttle_id = /obj/docking_port/mobile/starboard_umbilical_cord::id
+
+/obj/docking_port/mobile/port_umbilical_cord
+	name = "Port Umbilical Cord"
+	id = "port_umbilical_cord"
+	preferred_direction = WEST
+
+/obj/docking_port/mobile/starboard_umbilical_cord
+	name = "Starboard Umbilical Cord"
+	id = "starboard_umbilical_cord"
+	preferred_direction = WEST
+
+/obj/effect/landmark/ert_spawns/umbilical
+
+/obj/structure/machinery/door_control/automatic/umbilical
+	id = "hangar_umbilical_ert"
+
+/datum/map_template/shuttle/hunter
+	name = "Hunter Shuttle"
+	shuttle_id = MOBILE_SHUTTLE_ID_HUNTER

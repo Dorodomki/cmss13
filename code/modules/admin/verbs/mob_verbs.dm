@@ -24,7 +24,7 @@
 	message_admins("[key_name_admin(usr)] modified [key_name(M)]'s ckey to [new_ckey]", 1)
 
 	M.ckey = new_ckey
-	M.client?.change_view(world_view_size)
+	M.client?.change_view(GLOB.world_view_size)
 
 /client/proc/cmd_admin_changekey(mob/O in GLOB.mob_list)
 	set name = "Change CKey"
@@ -38,10 +38,11 @@
 	if(!istype(O) || (!check_rights(R_ADMIN|R_DEBUG, 0))) //Let's add a few extra sanity checks.
 		return
 	if(alert("Do you want to possess this mob?", "Switch Ckey", "Yes", "No") == "Yes")
-		if(!M || !O) //Extra check in case the mob was deleted while we were transfering.
+		if(!M || !O) //Extra check in case the mob was deleted while we were transferring.
 			return
 		change_ckey(M, O.ckey)
-	else return
+	else
+		return
 
 /client/proc/cmd_admin_check_contents(mob/living/M as mob in GLOB.living_mob_list)
 	set name = "Check Contents"
@@ -67,21 +68,24 @@
 		alert("Why do you need to add a HUD to a ghost?")
 		return
 
-	var/list/listed_huds = list("Medical HUD", "Security HUD", "Squad HUD", "Xeno Status HUD")
+	var/list/listed_huds = list("Medical HUD", "Security HUD", "Squad HUD", "Xeno Status HUD", "Hunter HUD")
 	var/hud_choice = tgui_input_list(usr, "Choose a HUD to toggle", "Toggle HUD", listed_huds)
 	var/datum/mob_hud/H
 	switch(hud_choice)
 		if("Medical HUD")
-			H = huds[MOB_HUD_MEDICAL_ADVANCED]
+			H = GLOB.huds[MOB_HUD_MEDICAL_ADVANCED]
 		if("Security HUD")
-			H = huds[MOB_HUD_SECURITY_ADVANCED]
+			H = GLOB.huds[MOB_HUD_SECURITY_ADVANCED]
 		if("Squad HUD")
-			H = huds[MOB_HUD_FACTION_OBSERVER]
+			H = GLOB.huds[MOB_HUD_FACTION_OBSERVER]
 		if("Xeno Status HUD")
-			H = huds[MOB_HUD_XENO_STATUS]
-		else return
+			H = GLOB.huds[MOB_HUD_XENO_STATUS]
+		if("Hunter HUD")
+			H = GLOB.huds[MOB_HUD_HUNTER]
+		else
+			return
 
-	H.add_hud_to(M)
+	H.add_hud_to(M, HUD_SOURCE_ADMIN)
 	to_chat(src, SPAN_INFO("[hud_choice] enabled."))
 	message_admins(SPAN_INFO("[key_name(usr)] has given a [hud_choice] to [M]."))
 
@@ -89,12 +93,15 @@
 	set category = "Admin.Fun"
 	set name = "Gib"
 
-	if(!check_rights(R_ADMIN)) return
+	if(!check_rights(R_ADMIN))
+		return
 
 	var/confirm = alert(src, "You sure?", "Confirm", "Yes", "No")
-	if(confirm != "Yes") return
+	if(confirm != "Yes")
+		return
 	//Due to the delay here its easy for something to have happened to the mob
-	if(!M) return
+	if(!M)
+		return
 
 	message_admins("[key_name_admin(usr)] has gibbed [key_name_admin(M)]", 1)
 
@@ -158,13 +165,13 @@
 			var/mob/living/carbon/human/H = M
 
 			if(!istype(H))
-				to_chat(usr, "The person you are trying to contact is not human")
+				to_chat(usr, "The person you are trying to contact is not human.")
 				return
 
 			if(!H.get_type_in_ears(/obj/item/device/radio/headset))
-				to_chat(usr, "The person you are trying to contact is not wearing a headset")
+				to_chat(usr, "The person you are trying to contact is not wearing a headset.")
 				return
-			to_chat(H, SPAN_DANGER("Message received through headset. [message_option] Transmission <b>\"[msg]\"</b>"))
+			to_chat(H, SPAN_ANNOUNCEMENT_HEADER_BLUE("Message received through headset. [message_option] Transmission <b>\"[msg]\"</b>"))
 
 	var/message = WRAP_STAFF_LOG(usr, SPAN_STAFF_IC("subtle messaged [key_name(M)] as [message_option], saying \"[msg]\" in [get_area(M)] ([M.x],[M.y],[M.z])."))
 	message_admins(message, M.x, M.y, M.z)
@@ -203,7 +210,7 @@
 		else
 			return
 
-/client/proc/cmd_admin_object_narrate(obj/selected)
+/client/proc/cmd_admin_object_narrate(obj/selected in view(src))
 	set name = "Object Narrate"
 	set category = null
 
@@ -214,13 +221,15 @@
 				"What type of narration?",
 				"Narration",
 				list(NARRATION_METHOD_SAY, NARRATION_METHOD_ME, NARRATION_METHOD_DIRECT))
-	if(!type) return
+	if(!type)
+		return
 	var/message = input(usr,
 				"What should it say?",
 				"Narrating as [selected.name]")
-	if(!message) return
+	if(!message)
+		return
 
-	var/list/heard = get_mobs_in_view(world_view_size, selected)
+	var/list/heard = get_mobs_in_view(GLOB.world_view_size, selected)
 
 	switch(type)
 		if(NARRATION_METHOD_SAY)
@@ -234,7 +243,7 @@
 	log_admin("[key_name(src)] sent an Object Narrate with message [message].")
 	message_admins("[key_name(src)] sent an Object Narrate with message [message].")
 
-/client/proc/cmd_admin_direct_narrate(mob/M)
+/client/proc/cmd_admin_direct_narrate(mob/M in GLOB.mob_list)
 	set name = "Narrate"
 	set category = null
 
@@ -289,7 +298,7 @@
 	usr.forceMove(O)
 	usr.real_name = O.name
 	usr.name = O.name
-	usr.client.eye = O
+	usr.client.set_eye(O)
 	usr.control_object = O
 
 /client/proc/release(obj/O as obj in world)
@@ -309,7 +318,7 @@
 			H.change_real_name(H, usr.name_archive)
 
 	usr.forceMove(O.loc )// Appear where the object you were controlling is -- TLE
-	usr.client.eye = usr
+	usr.client.set_eye(usr)
 	usr.control_object = null
 
 /client/proc/cmd_admin_drop_everything(mob/M as mob in GLOB.mob_list)
@@ -325,12 +334,13 @@
 		return
 
 	for(var/obj/item/W in M)
-		if(istype(W,/obj/item/alien_embryo)) continue
+		if(istype(W,/obj/item/alien_embryo))
+			continue
 		M.drop_inv_item_on_ground(W)
 
 	message_admins("[key_name_admin(usr)] made [key_name_admin(M)] drop everything!")
 
-/client/proc/cmd_admin_change_their_hivenumber(mob/living/carbon/H)
+/client/proc/cmd_admin_change_their_hivenumber(mob/living/carbon/H in GLOB.living_mob_list)
 	set name = "Change Hivenumber"
 	set category = null
 
@@ -345,7 +355,7 @@
 	var/newhive = tgui_input_list(src,"Select a hive.", "Change Hivenumber", hives, theme="hive_status")
 
 	if(!H)
-		to_chat(usr, "This mob no longer exists")
+		to_chat(usr, "This mob no longer exists.")
 		return
 
 	if(isxeno(H))
@@ -370,7 +380,7 @@
 	message_admins("[key_name(src)] changed hivenumber of [H] to [H.hivenumber].")
 
 
-/client/proc/cmd_admin_change_their_name(mob/living/carbon/X)
+/client/proc/cmd_admin_change_their_name(mob/living/carbon/carbon in GLOB.living_mob_list)
 	set name = "Change Name"
 	set category = null
 
@@ -378,19 +388,20 @@
 	if(!newname)
 		return
 
-	if(!X)
-		to_chat(usr, "This mob no longer exists")
+	if(!carbon)
+		to_chat(usr, "This mob no longer exists.")
 		return
 
-	var/old_name = X.name
-	X.change_real_name(X, newname)
-	if(istype(X, /mob/living/carbon/human))
-		var/mob/living/carbon/human/H = X
-		if(H.wear_id)
-			H.wear_id.name = "[H.real_name]'s ID Card"
-			H.wear_id.registered_name = "[H.real_name]"
-			if(H.wear_id.assignment)
-				H.wear_id.name += " ([H.wear_id.assignment])"
+	var/old_name = carbon.name
+	carbon.change_real_name(carbon, newname)
+	if(ishuman(carbon))
+		var/mob/living/carbon/human/human = carbon
+		var/obj/item/card/id/card = human.get_idcard()
+		if(card)
+			card.name = "[human.real_name]'s [card.id_type]"
+			card.registered_name = "[human.real_name]"
+			if(card.assignment)
+				card.name += " ([card.assignment])"
 
 	message_admins("[key_name(src)] changed name of [old_name] to [newname].")
 
@@ -398,7 +409,8 @@
 	set name = "Toggle Sleeping"
 	set category = null
 
-	if(!check_rights(0)) return
+	if(!check_rights(0))
+		return
 
 	if (M.sleeping > 0) //if they're already slept, set their sleep to zero and remove the icon
 		M.sleeping = 0

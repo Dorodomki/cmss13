@@ -3,7 +3,6 @@
 	layer = 5
 	/// Link alerts to ARES Link
 	var/datum/ares_link/link
-	var/link_id = MAIN_SHIP_DEFAULT_NAME
 	/// Alert message to report unless area based.
 	var/alert_message = "ALERT: Unauthorized movement detected in ARES Core!"
 	/// Connect alerts to use same cooldowns
@@ -25,7 +24,7 @@
 		return FALSE
 	if(!(ishuman(passer) || isxeno(passer)))
 		return FALSE
-	if(passer.alpha <= 100)//Can't be seen/detected to trigger alert.
+	if(HAS_TRAIT(passer, TRAIT_CLOAKED))
 		return FALSE
 	if(pass_jobs)
 		if(passer.job in pass_jobs)
@@ -34,9 +33,10 @@
 			return FALSE
 	if(ishuman(passer))
 		var/mob/living/carbon/human/trespasser = passer
-		if(pass_accesses && (trespasser.wear_id))
+		var/obj/item/card/id/card = trespasser.get_idcard()
+		if(pass_accesses && card)
 			for(var/tag in pass_accesses)
-				if(tag in trespasser.wear_id.access)
+				if(tag in card.access)
 					return FALSE
 	Trigger(passer)
 	return TRUE
@@ -53,7 +53,7 @@
 /obj/effect/step_trigger/ares_alert/proc/link_systems(datum/ares_link/new_link = GLOB.ares_link, override)
 	if(link && !override)
 		return FALSE
-	if(new_link.link_id == link_id)
+	if(new_link)
 		link = new_link
 		new_link.linked_alerts += src
 		return TRUE
@@ -70,16 +70,11 @@
 		broadcast_message = "ALERT: Unauthorized movement detected in [area_name]!"
 
 	var/datum/ares_link/link = GLOB.ares_link
-	if(link.p_apollo.inoperable())
+	if(!ares_can_apollo())
 		return FALSE
 
 	to_chat(passer, SPAN_BOLDWARNING("You hear a soft beeping sound as you cross the threshold."))
-	var/datum/language/apollo/apollo = GLOB.all_languages[LANGUAGE_APOLLO]
-	for(var/mob/living/silicon/decoy/ship_ai/ai in ai_mob_list)
-		apollo.broadcast(ai, broadcast_message)
-	for(var/mob/listener as anything in (GLOB.human_mob_list + GLOB.dead_mob_list))
-		if(listener.hear_apollo())//Only plays sound to mobs and not observers, to reduce spam.
-			playsound_client(listener.client, sound('sound/misc/interference.ogg'), listener, vol = 45)
+	ares_apollo_talk(broadcast_message)
 	COOLDOWN_START(src, sensor_cooldown, cooldown_duration)
 	if(alert_id && link)
 		for(var/obj/effect/step_trigger/ares_alert/sensor in link.linked_alerts)
@@ -89,6 +84,7 @@
 
 /obj/effect/step_trigger/ares_alert/public
 	pass_accesses = list(ACCESS_MARINE_AI_TEMP, ACCESS_MARINE_AI, ACCESS_ARES_DEBUG)
+
 /obj/effect/step_trigger/ares_alert/core
 	alert_id = "AresCore"
 	pass_accesses = list(ACCESS_MARINE_AI_TEMP, ACCESS_MARINE_AI, ACCESS_ARES_DEBUG)
@@ -116,13 +112,11 @@
 
 
 /obj/effect/step_trigger/ares_alert/access_control/Crossed(atom/passer as mob|obj)
-	if(isobserver(passer) || isxeno(passer))
-		return FALSE
-	if(!COOLDOWN_FINISHED(src, sensor_cooldown))//Don't want alerts spammed.
+	if(isobserver(passer) || isxeno(passer) || ishologram(passer))
 		return FALSE
 	if(!passer)
 		return FALSE
-	if(passer.alpha <= 100)//Can't be seen/detected to trigger alert.
+	if(HAS_TRAIT(passer, TRAIT_CLOAKED))//Can't be seen/detected to trigger alert.
 		return FALSE
 	var/area/pass_area = get_area(get_step(passer, passer.dir))
 	if(istype(pass_area, /area/almayer/command/airoom))//Don't want it to freak out over someone /entering/ the area. Only leaving.
@@ -131,11 +125,9 @@
 	var/check_contents = TRUE
 	if(ishuman(passer))
 		var/mob/living/carbon/human/human_passer = passer
-		idcard = human_passer.wear_id
-		if(istype(idcard))
+		idcard = human_passer.get_idcard()
+		if(idcard)
 			check_contents = FALSE
-		else
-			idcard = null
 
 	if(istype(passer, /obj/item/card/id))
 		idcard = passer
@@ -162,18 +154,25 @@
 	var/broadcast_message = get_broadcast(passer, idcard, failure)
 
 	var/datum/ares_link/link = GLOB.ares_link
-	if(link.p_apollo.inoperable())
+	if(!ares_can_apollo())
 		return FALSE
 
 	to_chat(passer, SPAN_BOLDWARNING("You hear a harsh buzzing sound as you cross the threshold!"))
-	var/datum/language/apollo/apollo = GLOB.all_languages[LANGUAGE_APOLLO]
-	for(var/mob/living/silicon/decoy/ship_ai/ai in ai_mob_list)
-		apollo.broadcast(ai, broadcast_message)
-	for(var/mob/listener in (GLOB.human_mob_list + GLOB.dead_mob_list))
-		if(listener.hear_apollo())//Only plays sound to mobs and not observers, to reduce spam.
-			playsound_client(listener.client, sound('sound/misc/interference.ogg'), listener, vol = 45)
+	if(COOLDOWN_FINISHED(src, sensor_cooldown))//Don't want alerts spammed.
+		ares_apollo_talk(broadcast_message)
 	if(idcard)
-		idcard.access -= ACCESS_MARINE_AI_TEMP
+		/// Removes the access from the ID and updates the ID's modification log.
+		for(var/obj/item/card/id/identification in link.active_ids)
+			if(identification != idcard)
+				continue
+			idcard.access -= ACCESS_MARINE_AI_TEMP
+			link.active_ids -= idcard
+			idcard.modification_log += "Temporary AI access revoked by [MAIN_AI_SYSTEM]"
+		/// Updates the related access ticket.
+		for(var/datum/ares_ticket/access/access_ticket in link.tickets_access)
+			if(access_ticket.user_id_num != idcard.registered_gid)
+				continue
+			access_ticket.ticket_status = TICKET_REVOKED
 	COOLDOWN_START(src, sensor_cooldown, COOLDOWN_ARES_ACCESS_CONTROL)
 	if(alert_id && link)
 		for(var/obj/effect/step_trigger/ares_alert/sensor in link.linked_alerts)
@@ -191,7 +190,7 @@
 		return "ALERT: [human_passer.name] left the AI Chamber with a temporary access ticket. Removing access."
 
 	if(idcard)
-		return "ALERT: ID Card assigned to [idcard.registered_name] left the AI Chamber with a temporary access ticket. Removing access."
+		return "ALERT: [idcard.id_type] assigned to [idcard.registered_name] left the AI Chamber with a temporary access ticket. Removing access."
 
 	log_debug("ARES ERROR 337: Passer: '[passer]', ID: '[idcard]', F Status: '[failure]'")
 	return "Warning: Error 337 - Access Control Anomaly."

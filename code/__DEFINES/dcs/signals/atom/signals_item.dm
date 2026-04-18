@@ -28,6 +28,12 @@
 #define COMSIG_SNACK_EATEN "snack_eaten"
 
 #define COMSIG_ITEM_PICKUP "item_pickup"
+	#define COMSIG_ITEM_PICKUP_CANCELLED (1<<0)
+
+///from /obj/item/device/broadcasting
+#define COMSIG_BROADCAST_GO_LIVE "broadcast_live"
+#define COMSIG_BROADCAST_HEAR_TALK "broadcast_hear_talk"
+#define COMSIG_BROADCAST_SEE_EMOTE "broadcast_see_emote"
 
 /// from /obj/item/proc/mob_can_equip
 #define COMSIG_ITEM_ATTEMPTING_EQUIP "item_attempting_equip"
@@ -38,3 +44,25 @@
 #define COMSIG_ITEM_ZOOM "item_zoom"
 /// from /obj/item/proc/unzoom() : (mob/user)
 #define COMSIG_ITEM_UNZOOM "item_unzoom"
+
+//from /datum/authority/branch/role/proc/equip_role()
+#define COMSIG_POST_SPAWN_UPDATE "post_spawn_update"
+
+//from /datum/equipment_preset/proc/load_vanity()
+#define COMSIG_POST_VANITY_UPDATE "post_vanity_update"
+
+#define COMSIG_CAMERA_MAPNAME_ASSIGNED "camera_manager_mapname_assigned"
+#define COMSIG_CAMERA_REGISTER_UI "camera_manager_register_ui"
+#define COMSIG_CAMERA_UNREGISTER_UI "camera_manager_unregister_ui"
+#define COMSIG_CAMERA_SET_NVG "camera_manager_set_nvg"
+#define COMSIG_CAMERA_CLEAR_NVG "camera_manager_clear_nvg"
+#define COMSIG_CAMERA_SET_TARGET "camera_manager_set_target"
+#define COMSIG_CAMERA_SET_AREA "camera_manager_set_area"
+#define COMSIG_CAMERA_CLEAR "camera_manager_clear_target"
+#define COMSIG_CAMERA_REFRESH "camera_manager_refresh"
+
+#define COMSIG_PRED_BRACER_DECLOAKED "pred_bracer_decloaked"
+
+//from /datum/component/overwatch_console_control
+#define COMSIG_OW_CONSOLE_OBSERVE_START "ow_console_observe_start"
+#define COMSIG_OW_CONSOLE_OBSERVE_END "ow_console_observe_end"

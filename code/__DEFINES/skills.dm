@@ -8,6 +8,7 @@
 #define SKILL_ENGINEER "engineer"
 #define SKILL_CONSTRUCTION "construction"
 #define SKILL_LEADERSHIP "leadership"
+#define SKILL_OVERWATCH "overwatch"
 #define SKILL_MEDICAL "medical"
 #define SKILL_SURGERY "surgery"
 #define SKILL_RESEARCH "research"
@@ -33,20 +34,33 @@
 //increase or decrase accuracy, recoil, and firing delay of rifles and smgs.
 #define SKILL_FIREARMS_CIVILIAN 0  //civilian
 #define SKILL_FIREARMS_TRAINED 1   //marines (allow tactical reloads)
-#define SKILL_FIREARMS_EXPERT 2   //special training
-#define SKILL_FIREARMS_MAX 2
+#define SKILL_FIREARMS_SKILLED 2   //a few marines and more trained personnel
+#define SKILL_FIREARMS_MASTER 3   //special training
+#define SKILL_FIREARMS_MAX 3
 
 //spec_weapons skill
 //hidden. who can and can't use specialist weapons
 #define SKILL_SPEC_DEFAULT 0
-#define SKILL_SPEC_ROCKET 1 //can use the demolitionist specialist gear
-#define SKILL_SPEC_SCOUT 2
-#define SKILL_SPEC_SNIPER 3
-#define SKILL_SPEC_GRENADIER 4
-#define SKILL_SPEC_PYRO 5
-#define SKILL_SPEC_SMARTGUN 6 //for smartgunners
-#define SKILL_SPEC_UPP 7 //for upp
-#define SKILL_SPEC_ALL 8 //can use all specialist gear
+/// Is trained to use specialist gear, but hasn't picked a kit.
+#define SKILL_SPEC_TRAINED 1
+/// Is trained to use specialist gear & HAS picked a kit. (Functionally same as SPEC_ROCKET)
+#define SKILL_SPEC_KITTED 2
+/// Can use RPG
+#define SKILL_SPEC_ROCKET 2
+/// Can use thermal cloaks and custom M4RA rifle
+#define SKILL_SPEC_SCOUT 3
+/// Can use sniper rifles and camo suits
+#define SKILL_SPEC_SNIPER 4
+/// Can use the rotary grenade launcher and heavy armor
+#define SKILL_SPEC_GRENADIER 5
+/// Can use heavy flamers
+#define SKILL_SPEC_PYRO 6
+/// Can use smartguns
+#define SKILL_SPEC_SMARTGUN 7
+/// UPP special training
+#define SKILL_SPEC_UPP 8
+/// Can use ALL specialist weapons
+#define SKILL_SPEC_ALL 9
 
 //construction skill
 #define SKILL_CONSTRUCTION_DEFAULT 0
@@ -57,10 +71,11 @@
 
 // engineer skill
 #define SKILL_ENGINEER_DEFAULT 0
-#define SKILL_ENGINEER_TRAINED 1   //barricade repair && c4 use (mini-engis, specs)
-#define SKILL_ENGINEER_ENGI 2   //plasteel barricade deconstruction, hacking&&planet engine fixing&&apc building, Telecomms fixing (Combat Engi, OT, etc.)
-#define SKILL_ENGINEER_MASTER 3   //Synths
-#define SKILL_ENGINEER_MAX 3
+#define SKILL_ENGINEER_NOVICE 1   //barricade repair && c4 use (mini-engis, specs)
+#define SKILL_ENGINEER_TRAINED 2   //plasteel barricade deconstruction, hacking&&planet engine fixing&&apc building, Telecomms fixing  (OT, etc.)
+#define SKILL_ENGINEER_ENGI 3      // Slightly faster at everything (Combat Technicians)
+#define SKILL_ENGINEER_MASTER 4   //Synths
+#define SKILL_ENGINEER_MAX 4
 
 //medical skill
 #define SKILL_MEDICAL_DEFAULT 0
@@ -109,7 +124,7 @@
 
 
 //execution skill
-//roles with the execution skill can perform battlefield executions (i.e. mateba and deagle)
+//roles with the execution skill can perform battlefield executions (i.e. mateba(unica) and deagle)
 //should be restricted to CO/general/W-Y execs maybe
 
 #define SKILL_EXECUTION_DEFAULT 0
@@ -124,13 +139,18 @@
 #define SKILL_POWERLOADER_MASTER 2 //Pilot, CT, Req, OT, CE
 #define SKILL_POWERLOADER_MAX 2
 
-
 //leadership skill
 #define SKILL_LEAD_NOVICE 0 //Anyone but the above. Using SL items is possible but painfully slow
-#define SKILL_LEAD_TRAINED 1 //SL
-#define SKILL_LEAD_EXPERT 2 //SOs
-#define SKILL_LEAD_MASTER 3 //XO, CO
-#define SKILL_LEAD_MAX 3
+#define SKILL_LEAD_TRAINED 1 //Team leaders, departmental heads, junior officers
+#define SKILL_LEAD_SKILLED 2 //Combat-tested enlisted personnel, such as SLs
+#define SKILL_LEAD_EXPERT 3 //Combat-tested or combat directive Officers, like SOs
+#define SKILL_LEAD_MASTER 4 //XO, CO, basically any senior officer
+#define SKILL_LEAD_MAX 4
+
+//overwatch skill
+#define SKILL_OVERWATCH_DEFAULT 0
+#define SKILL_OVERWATCH_TRAINED 1 //Allows use of overwatch consoles
+#define SKILL_OVERWATCH_MAX 1
 
 
 //JTAC skill

@@ -5,6 +5,11 @@
 	var/maxHealth = 100 //Maximum health that should be possible.
 	var/health = 100 //A mob's health
 
+	///How much health a mob has when it dies.
+	var/health_threshold_dead = -100
+	///How much health a mob has when it goes into crit state.
+	var/health_threshold_crit = -50
+
 	//Damage related vars, NOTE: THESE SHOULD ONLY BE MODIFIED BY PROCS
 	var/bruteloss = 0 //Brutal damage caused by brute force (punching, being clubbed by a toolbox ect... this also accounts for pressure damage)
 	var/oxyloss = 0 //Oxygen depravation damage (no air in lungs)
@@ -13,6 +18,17 @@
 	var/cloneloss = 0 //Damage caused by being cloned or ejected from the cloner early
 	var/brainloss = 0 //'Retardation' damage caused by someone hitting you in the head with a bible or being infected with brainrot.
 	var/halloss = 0 //Hallucination damage. 'Fake' damage obtained through hallucinating or the holodeck. Sleeping should cause it to wear off.
+
+	// please don't use these directly, use the procs
+	var/dazed = 0
+	var/slowed = 0 // X_SLOW_AMOUNT
+	var/superslowed = 0 // X_SUPERSLOW_AMOUNT
+	var/sleeping = 0
+
+	///a list of all status effects the mob has
+	var/list/status_effects
+	/// Cooldown for manually toggling resting to avoid spamming
+	COOLDOWN_DECLARE(rest_cooldown)
 
 	var/hallucination = 0 //Directly affects how long a mob will hallucinate for
 	var/list/atom/hallucinations = list() //A list of hallucinated people that try to attack the mob. See /obj/effect/fake_attacker in hallucinations.dm
@@ -44,7 +60,6 @@
 	var/fire_stacks = 0 //Tracks how many stacks of fire we have on, max is
 	var/datum/reagent/fire_reagent
 
-	var/is_being_hugged = 0 //Is there a hugger humping our face?
 	var/chestburst = 0 // 0: normal, 1: bursting, 2: bursted.
 	var/first_xeno = FALSE //Are they the first wave of infected?
 	var/in_stasis = FALSE //Is the mob in stasis bag?
@@ -99,7 +114,6 @@
 
 	var/current_weather_effect_type
 
-
 	var/slash_verb = "attack"
 	var/slashes_verb = "attacks"
 
@@ -110,3 +124,27 @@
 
 	/// This is what the value is changed to when the mob dies. Actual BMV definition in atom/movable.
 	var/dead_black_market_value = 0
+
+	/// Variable to track the body position of a mob, regardgless of the actual angle of rotation (usually matching it, but not necessarily).
+	var/body_position = STANDING_UP
+	/// For knowing when was the body position changed
+	var/body_position_changed = 0
+	/// Number of degrees of rotation of a mob. 0 means no rotation, up-side facing NORTH. 90 means up-side rotated to face EAST, and so on.
+	VAR_PROTECTED/lying_angle = 0
+	/// Value of lying lying_angle before last change. TODO: Remove the need for this.
+	var/lying_prev = 0
+	/// Does the mob rotate when lying
+	var/rotate_on_lying = FALSE
+
+	/// Flags that determine the potential of a mob to perform certain actions. Do not change this directly.
+	var/mobility_flags = MOBILITY_FLAGS_DEFAULT
+
+	/// icon for weed_food states
+	var/weed_food_icon = 'icons/mob/xenos/weeds.dmi'
+	/// icon_states for weed_food (needs to be the same length as weed_food_states_flipped)
+	var/list/weed_food_states = list("human_1","human_2","human_3","human_4","human_5")
+	/// flipped icon_states for weed_food (needs to be the same length as weed_food_states)
+	var/list/weed_food_states_flipped = list("human_1_f","human_2_f","human_3_f","human_4_f","human_5_f")
+
+	// for multiz looking up
+	var/atom/observed_atom

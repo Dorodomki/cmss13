@@ -52,9 +52,8 @@ GLOBAL_DATUM_INIT(bioscan_data, /datum/bioscan_data, new)
 	for(var/mob/current_mob as anything in GLOB.living_xeno_list)
 		if(current_mob.mob_flags & NOBIOSCAN)
 			continue
-		var/area/A = get_area(current_mob)
-		if(A?.flags_area & AREA_AVOID_BIOSCAN)
-			xenos_on_ship++
+		var/area/area = get_area(current_mob)
+		if(area?.flags_area & AREA_AVOID_BIOSCAN)
 			continue
 		var/atom/where = current_mob
 		if (where.z == 0 && current_mob.loc)
@@ -69,6 +68,9 @@ GLOBAL_DATUM_INIT(bioscan_data, /datum/bioscan_data, new)
 
 	for(var/mob/living/carbon/human/current_human as anything in GLOB.alive_human_list)
 		if(current_human.mob_flags & NOBIOSCAN)
+			continue
+		var/area/area = get_area(current_human)
+		if(area?.flags_area & AREA_AVOID_BIOSCAN)
 			continue
 		var/atom/where = current_human
 		if(isspecieshuman(current_human))
@@ -109,19 +111,23 @@ GLOBAL_DATUM_INIT(bioscan_data, /datum/bioscan_data, new)
 		to_chat(ghost, ghost_scan)
 
 
-/// This will do something after Project ARES.
-/datum/bioscan_data/proc/can_ares_bioscan()
+/datum/bioscan_data/proc/ares_can_bioscan()
 	var/datum/ares_link/link = GLOB.ares_link
-	if(!istype(link))
+	if(!istype(link) || !ares_is_active())
 		return FALSE
-	if(link.p_bioscan && !link.p_bioscan.inoperable())
+	if(link.processor_bioscan && !link.processor_bioscan.inoperable())
 		return TRUE
 	return FALSE
 
 /// The announcement to all Humans. Slightly off for the planet and elsewhere, accurate for the ship.
 /datum/bioscan_data/proc/ares_bioscan(forced = FALSE, variance = 2)
-	if(!forced && !can_ares_bioscan())
-		message_admins("BIOSCAN: An ARES bioscan has failed.")
+	if(!forced && !ares_can_bioscan())
+		message_admins("An ARES Bioscan has failed.")
+		var/name = "[MAIN_AI_SYSTEM] Bioscan Status"
+		var/input = "Bioscan failed. \n\nInvestigation into Bioscan subsystem recommended."
+		log_ares_bioscan(name, input, forced)
+		if(ares_can_interface() || forced)
+			marine_announcement(input, name, 'sound/misc/interference.ogg', logging = ARES_LOG_NONE)
 		return
 	//Adjust the randomness there so everyone gets the same thing
 	var/fake_xenos_on_planet = max(0, xenos_on_planet + rand(-variance, variance))
@@ -130,10 +136,11 @@ GLOBAL_DATUM_INIT(bioscan_data, /datum/bioscan_data, new)
 
 	log_game("BIOSCAN: ARES bioscan completed. [input]")
 
-	var/datum/ares_link/link = GLOB.ares_link
-	link.log_ares_bioscan(name, input)
-	if(forced || (link.p_interface && !link.p_interface.inoperable()))
+	log_ares_bioscan(name, input) //if interface is down, bioscan still logged, just have to go read it.
+	if(forced || ares_can_interface())
 		marine_announcement(input, name, 'sound/AI/bioscan.ogg', logging = ARES_LOG_NONE)
+	else
+		message_admins("An ARES Bioscan has succeeded, but was not announced.")
 
 /// The announcement to all Xenos. Slightly off for the human ship, accurate otherwise.
 /datum/bioscan_data/proc/qm_bioscan(variance = 2)
@@ -146,7 +153,7 @@ GLOBAL_DATUM_INIT(bioscan_data, /datum/bioscan_data, new)
 	var/planet_location = "[marines_on_planet && marine_planet_location ? ", including one in [marine_planet_location]" : ""]"
 
 	var/title = SPAN_XENOANNOUNCE("The Queen Mother reaches into your mind from worlds away.")
-	var/content = SPAN_XENOANNOUNCE("To my children and their Queen. I sense [metalhive_hosts] host[plural] in the metal hive [metalhive_location] and [planet_hosts] scattered elsewhere[planet_location].")
+	var/content = SPAN_XENOANNOUNCE("To my children and their Queen: I sense [metalhive_hosts] host[plural] in the metal hive[metalhive_location] and [planet_hosts] scattered elsewhere[planet_location].")
 
 	log_game("BIOSCAN: Queen Mother bioscan completed. [content]")
 	/// Shout it at everyone

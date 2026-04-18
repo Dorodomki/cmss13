@@ -42,7 +42,7 @@
 	return
 
 //This gets called when you press the delete button.
-/client/verb/delete_key_pressed()
+CLIENT_VERB(delete_key_pressed)
 	set hidden = TRUE
 
 	if(!usr.pulling)
@@ -50,29 +50,25 @@
 		return
 	usr.stop_pulling()
 
-/client/verb/swap_hand()
+CLIENT_VERB(swap_hand)
 	set name = ".SwapMobHand"
 	set hidden = TRUE
 
 	if(istype(mob, /mob/living/carbon))
 		mob.swap_hand()
-	if(istype(mob,/mob/living/silicon/robot))
-		var/mob/living/silicon/robot/R = mob
-		R.cycle_modules()
 	return
 
 
 
-/client/verb/attack_self()
+CLIENT_VERB(attack_self)
 	set hidden = TRUE
 	if(mob)
 		mob.mode()
 	return
 
-/client/verb/drop_item()
+CLIENT_VERB(drop_item)
 	set hidden = TRUE
-	if(!isrobot(mob))
-		mob.drop_item_v()
+	mob.drop_item_v()
 	return
 
 
@@ -84,7 +80,8 @@
 	if(mob && mob.control_object)
 		if(mob.control_object.density)
 			step(mob.control_object,direct)
-			if(!mob.control_object) return
+			if(!mob.control_object)
+				return
 			mob.control_object.setDir(direct)
 		else
 			mob.control_object.forceMove(get_step(mob.control_object,direct))
@@ -95,7 +92,19 @@
 	mob.next_delay_update = world.time + mob.next_delay_delay
 
 /client/Move(n, direct)
-	if(world.time < next_movement || (mob.lying && mob.crawling))
+	var/mob/living/living_mob
+	if(isliving(mob))
+		living_mob = mob
+
+	if(ishuman(living_mob)) // Might as well just do it here than set movement delay to 0
+		var/mob/living/carbon/human/human = living_mob
+		if(HAS_TRAIT(human, TRAIT_HAULED))
+			human.handle_haul_resist()
+			return
+
+	if(world.time < next_movement)
+		return
+	if(living_mob && living_mob.body_position == LYING_DOWN && mob.crawling)
 		return
 
 	next_move_dir_add = 0
@@ -134,10 +143,24 @@
 	if(!isliving(mob))
 		return mob.Move(n, direct)
 
-	if(!mob.canmove || mob.is_mob_incapacitated(TRUE) || (mob.lying && !mob.can_crawl))
+	if(mob.is_mob_incapacitated(TRUE))
 		return
 
-	//Check if you are being grabbed and if so attemps to break it
+	if(mob.buckled)
+		// Handle buckled relay before mobility because buckling inherently immobilizes
+		// This means you can (try to) move with a cargo tug or powerloader while immobilized, which i think makes sense
+		return mob.buckled.relaymove(mob, direct)
+
+	if(!(living_mob.mobility_flags & MOBILITY_MOVE))
+		return
+	if(living_mob.body_position == LYING_DOWN && !living_mob.can_crawl)
+		return
+	if(living_mob.body_position == LYING_DOWN && isxeno(mob.pulledby))
+		next_movement = world.time + 20 //Good Idea
+		to_chat(src, SPAN_NOTICE("You cannot crawl while a xeno is grabbing you."))
+		return
+
+	//Check if you are being grabbed and if so attempts to break it
 	if(mob.pulledby)
 		if(mob.is_mob_restrained(0))
 			next_movement = world.time + 20 //to reduce the spam
@@ -149,9 +172,6 @@
 	if(SEND_SIGNAL(mob, COMSIG_MOB_MOVE_OR_LOOK, TRUE, direct, direct) & COMPONENT_OVERRIDE_MOB_MOVE_OR_LOOK)
 		next_movement = world.time + MINIMAL_MOVEMENT_INTERVAL
 		return
-
-	if(mob.buckled)
-		return mob.buckled.relaymove(mob, direct)
 
 	if(!mob.z)//Inside an object, tell it we moved
 		var/atom/O = mob.loc
@@ -168,11 +188,13 @@
 		if((mob.flags_atom & DIRLOCK) && mob.dir != direct)
 			move_delay += MOVE_REDUCTION_DIRECTION_LOCKED // by Geeves
 
-		mob.cur_speed = Clamp(10/(move_delay + 0.5), MIN_SPEED, MAX_SPEED)
-		//We are now going to move
-		moving = TRUE
-		mob.move_intentionally = TRUE
-		if(mob.lying)
+		mob.cur_speed = clamp(10/(move_delay + 0.5), MIN_SPEED, MAX_SPEED)
+		next_movement = world.time + MINIMAL_MOVEMENT_INTERVAL // We pre-set this now for the crawling case. If crawling do_after fails, next_movement would be set after the attempt end instead of now.
+
+		//Try to crawl first
+		if(living_mob && living_mob.body_position == LYING_DOWN)
+			if(mob.crawling)
+				return // Already doing it.
 			//check for them not being a limbless blob (only humans have limbs)
 			if(ishuman(mob))
 				var/mob/living/carbon/human/human = mob
@@ -180,22 +202,20 @@
 				for(var/zone in extremities)
 					if(!(human.get_limb(zone)))
 						extremities.Remove(zone)
-				if(extremities.len < 4)
-					next_movement = world.time + MINIMAL_MOVEMENT_INTERVAL
-					mob.move_intentionally = FALSE
-					moving = FALSE
+				if(length(extremities) < 4)
 					return
 			//now crawl
 			mob.crawling = TRUE
-			if(!do_after(mob, 3 SECONDS, INTERRUPT_MOVED|INTERRUPT_UNCONSCIOUS|INTERRUPT_STUNNED|INTERRUPT_RESIST|INTERRUPT_CHANGED_LYING, BUSY_ICON_GENERIC))
+			if(!do_after(mob, 1 SECONDS, INTERRUPT_MOVED|INTERRUPT_UNCONSCIOUS|INTERRUPT_STUNNED|INTERRUPT_RESIST|INTERRUPT_CHANGED_LYING, NO_BUSY_ICON))
 				mob.crawling = FALSE
-				next_movement = world.time + MINIMAL_MOVEMENT_INTERVAL
-				mob.move_intentionally = FALSE
-				moving = FALSE
 				return
+			if(!mob.crawling)
+				return // Crawling interrupted by a "real" move. Do nothing. In theory INTERRUPT_MOVED|INTERRUPT_CHANGED_LYING catches this in do_after.
 		mob.crawling = FALSE
+		mob.move_intentionally = TRUE
+		moving = TRUE
 		if(mob.confused)
-			mob.Move(get_step(mob, pick(cardinal)))
+			mob.Move(get_step(mob, pick(GLOB.cardinals)))
 		else
 			. = ..()
 
@@ -235,7 +255,7 @@
 
 	//Check to see if we slipped
 	if(prob(Process_Spaceslipping(5)))
-		to_chat(src, SPAN_NOTICE(" <B>You slipped!</B>"))
+		to_chat(src, SPAN_NOTICE("<B>You slipped!</B>"))
 		src.inertia_dir = src.last_move_dir
 		step(src, src.inertia_dir)
 		return 0
@@ -252,12 +272,12 @@
 
 		if(istype(src,/mob/living/carbon/human/))  // Only humans can wear magboots, so we give them a chance to.
 			var/mob/living/carbon/human/H = src
-			if((istype(turf,/turf/open/floor)) && (src.lastarea.has_gravity == 0) && !(istype(H.shoes, /obj/item/clothing/shoes/magboots) && (H.shoes.flags_inventory & NOSLIPPING)))
+			if((istype(turf,/turf/open/floor)) && !(istype(H.shoes, /obj/item/clothing/shoes/magboots) && (H.shoes.flags_inventory & NOSLIPPING)))
 				continue
 
 
 		else
-			if((istype(turf,/turf/open/floor)) && (src.lastarea && src.lastarea.has_gravity == 0)) // No one else gets a chance.
+			if(istype(turf,/turf/open/floor)) // No one else gets a chance.
 				continue
 
 
@@ -275,7 +295,7 @@
 		dense_object++
 
 	//Lastly attempt to locate any dense objects we could push off of
-	//TODO: If we implement objects drifing in space this needs to really push them
+	//TODO: If we implement objects drifting in space this needs to really push them
 	//Due to a few issues only anchored and dense objects will now work.
 	if(!dense_object)
 		for(var/obj/O in oview(1, src))
@@ -287,10 +307,10 @@
 
 
 /mob/proc/Process_Spaceslipping(prob_slip = 5)
-	//Setup slipage
+	//Setup slippage
 	//If knocked out we might just hit it and stop.  This makes it possible to get dead bodies and such.
 	if(stat)
 		prob_slip = 0  // Changing this to zero to make it line up with the comment.
 
-	prob_slip = round(prob_slip)
+	prob_slip = floor(prob_slip)
 	return(prob_slip)

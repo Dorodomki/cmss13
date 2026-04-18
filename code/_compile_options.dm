@@ -30,10 +30,14 @@
 #define CBT
 #endif
 
-#if !defined(CBT) && !defined(SPACEMAN_DMM)
+#if !defined(CBT) && !defined(SPACEMAN_DMM) && !defined(OPENDREAM)
 #warn Building with Dream Maker is no longer supported and will result in errors.
 #warn In order to build, run BUILD.bat in the bin directory.
 #warn Consider switching to VSCode editor instead, where you can press Ctrl+Shift+B to build.
+#endif
+
+#ifdef RUNTIME_MAP
+#define FORCE_GROUND_MAP "maps/runtime.json"
 #endif
 
 //#define UNIT_TESTS //If this is uncommented, we do a single run though of the game setup and tear down process with unit tests in between

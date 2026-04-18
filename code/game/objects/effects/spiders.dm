@@ -1,7 +1,7 @@
 //generic procs copied from obj/effect/alien
 /obj/effect/spider
 	name = "web"
-	desc = "it's stringy and sticky"
+	desc = "It's stringy and sticky."
 	icon = 'icons/effects/effects.dmi'
 	anchored = TRUE
 	density = FALSE
@@ -21,10 +21,10 @@
 	return
 
 /obj/effect/spider/attackby(obj/item/W, mob/user)
-	if(W.attack_verb.len)
-		visible_message(SPAN_DANGER("<B>\The [src] have been [pick(W.attack_verb)] with \the [W][(user ? "by [user]." : ".")]"))
+	if(LAZYLEN(W.attack_verb))
+		visible_message(SPAN_DANGER("[src] has been [pick(W.attack_verb)] with [W][(user ? " by [user]." : ".")]"))
 	else
-		visible_message(SPAN_DANGER("<B>\The [src] have been attacked with \the [W][(user ? "by [user]." : ".")]"))
+		visible_message(SPAN_DANGER("[src] has been attacked with [W][(user ? " by [user]." : ".")]"))
 
 	var/damage = W.force / 4
 
@@ -38,7 +38,7 @@
 	health -= damage
 	healthcheck()
 
-/obj/effect/spider/bullet_act(obj/item/projectile/Proj)
+/obj/effect/spider/bullet_act(obj/projectile/Proj)
 	..()
 	health -= Proj.ammo.damage
 	healthcheck()
@@ -67,14 +67,14 @@
 		if(prob(50))
 			to_chat(mover, SPAN_WARNING("You get stuck in [src] for a moment."))
 			return BLOCKED_MOVEMENT
-	else if(istype(mover, /obj/item/projectile))
+	else if(istype(mover, /obj/projectile))
 		if(prob(30))
 			return BLOCKED_MOVEMENT
 	return NO_BLOCKED_MOVEMENT
 
 /obj/effect/spider/eggcluster
 	name = "egg cluster"
-	desc = "They seem to pulse slightly with an inner life"
+	desc = "They seem to pulse slightly with an inner life."
 	icon_state = "eggs"
 	var/amount_grown = 0
 /obj/effect/spider/eggcluster/Initialize(mapload, ...)
@@ -144,11 +144,11 @@
 	//=================
 	if(prob(25))
 		var/list/nearby = oview(5, src)
-		if(nearby.len)
+		if(length(nearby))
 			var/target_atom = pick(nearby)
 			walk_to(src, target_atom, 5)
 			if(prob(25))
-				src.visible_message(SPAN_NOTICE("\the [src] skitters[pick(" away"," around","")]."))
+				src.visible_message(SPAN_NOTICE("\The [src] skitters[pick(" away"," around","")]."))
 	else if(prob(5))
 		//vent crawl!
 		for(var/obj/structure/pipes/vents/pump/v in view(7,src))
@@ -158,7 +158,7 @@
 				break
 
 	if(prob(1))
-		src.visible_message(SPAN_NOTICE("\the [src] chitters."))
+		src.visible_message(SPAN_NOTICE("\The [src] chitters."))
 	if(isturf(loc) && amount_grown > 0)
 		amount_grown += rand(0,2)
 		if(amount_grown >= 100)
@@ -170,11 +170,11 @@
 	//=================
 	if(prob(25))
 		var/list/nearby = oview(5, src)
-		if(nearby.len)
+		if(length(nearby))
 			var/target_atom = pick(nearby)
 			walk_to(src, target_atom, 5)
 			if(prob(25))
-				src.visible_message(SPAN_NOTICE("\the [src] skitters[pick(" away"," around","")]."))
+				src.visible_message(SPAN_NOTICE("\The [src] skitters[pick(" away"," around","")]."))
 	else if(prob(5))
 		//vent crawl!
 		for(var/obj/structure/pipes/vents/pump/v in view(7,src))
@@ -184,7 +184,7 @@
 				break
 
 	if(prob(1))
-		src.visible_message(SPAN_NOTICE("\the [src] chitters."))
+		src.visible_message(SPAN_NOTICE("\The [src] chitters."))
 
 /obj/effect/decal/cleanable/spiderling_remains
 	name = "spiderling remains"
@@ -195,7 +195,7 @@
 
 /obj/effect/spider/cocoon
 	name = "cocoon"
-	desc = "Something wrapped in silky spider web"
+	desc = "Something wrapped in silky spider web."
 	icon_state = "cocoon1"
 	health = 60
 

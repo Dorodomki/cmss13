@@ -26,14 +26,13 @@ SUBSYSTEM_DEF(input)
 		"Back" = "\".winset \\\"input.text=\\\"\\\"\\\"\"",
 		"F1" = "adminhelp", // Need to unbind F1 because by default, it is bound to .options
 		"CTRL+SHIFT+F1+REP" = ".options",
-		"Tab" = "\".winset \\\"input.focus=true?map.focus=true:input.focus=true\\\"\"",
 		"Escape" = "Open-Escape-Menu",
 		)
 
 // Badmins just wanna have fun ♪
 /datum/controller/subsystem/input/proc/refresh_client_macro_sets()
 	var/list/clients = GLOB.clients
-	for(var/i in 1 to clients.len)
+	for(var/i in 1 to length(clients))
 		var/client/user = clients[i]
 		INVOKE_ASYNC(user, /client/proc/set_macros)
 

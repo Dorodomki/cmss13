@@ -1,6 +1,6 @@
-var/global/river_activated = FALSE
+GLOBAL_VAR_INIT(river_activated, FALSE)
 
-/obj/structure/machinery/filtration/console
+/obj/structure/machinery/filtration_console
 	name = "console"
 	desc = "A console."
 	icon = 'icons/obj/structures/machinery/filtration.dmi'
@@ -12,7 +12,7 @@ var/global/river_activated = FALSE
 	var/id = null
 	var/damaged = 0
 
-/obj/structure/machinery/filtration/console/update_icon()
+/obj/structure/machinery/filtration_console/update_icon()
 	..()
 	if(damaged)
 		icon_state = "[initial(icon_state)]-d"
@@ -22,7 +22,7 @@ var/global/river_activated = FALSE
 		icon_state = initial(icon_state)
 	return
 
-/obj/structure/machinery/filtration/console/ex_act(severity)
+/obj/structure/machinery/filtration_console/ex_act(severity)
 	switch(severity)
 		if(1.0)
 			get_broken()
@@ -35,10 +35,8 @@ var/global/river_activated = FALSE
 			if (prob(10))
 				get_broken()
 				return
-		else
-	return
 
-/obj/structure/machinery/filtration/console/proc/get_broken()
+/obj/structure/machinery/filtration_console/proc/get_broken()
 	if(damaged)
 		return //We're already broken
 	damaged = !damaged
@@ -47,36 +45,36 @@ var/global/river_activated = FALSE
 	update_icon()
 	return
 
-/obj/structure/machinery/filtration/console/tgui_interact(mob/user, datum/tgui/ui)
+/obj/structure/machinery/filtration_console/tgui_interact(mob/user, datum/tgui/ui)
 	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, "FiltrationControl", "[src.name]")
+		ui = new(user, src, "FiltrationControl", "[capitalize(name)]")
 		ui.open()
 
-/obj/structure/machinery/filtration/console/ui_state(mob/user)
+/obj/structure/machinery/filtration_console/ui_state(mob/user)
 	return GLOB.not_incapacitated_and_adjacent_state
 
-/obj/structure/machinery/filtration/console/ui_status(mob/user, datum/ui_state/state)
+/obj/structure/machinery/filtration_console/ui_status(mob/user, datum/ui_state/state)
 	. = ..()
 	if(inoperable())
 		return UI_CLOSE
 
-/obj/structure/machinery/filtration/console/ui_data(mob/user)
+/obj/structure/machinery/filtration_console/ui_data(mob/user)
 	var/list/data = list()
 
-	data["filt_on"] = river_activated
+	data["filt_on"] = GLOB.river_activated
 
 	return data
 
-/obj/structure/machinery/filtration/console/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+/obj/structure/machinery/filtration_console/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
 	. = ..()
 	if(.)
 		return
 
 	switch(action)
 		if("activate_filt")
-			river_activated = TRUE
+			GLOB.river_activated = TRUE
 
-/obj/structure/machinery/filtration/console/attack_hand(mob/user)
+/obj/structure/machinery/filtration_console/attack_hand(mob/user)
 	. = ..()
 	tgui_interact(user)
